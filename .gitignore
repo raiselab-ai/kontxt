@@ -66,6 +66,7 @@ Temporary Items
 ai_artifacts/
 generated/
 .ai_cache/
+CLAUDE.md
 
 # Jupyter Notebooks
 .ipynb_checkpoints/

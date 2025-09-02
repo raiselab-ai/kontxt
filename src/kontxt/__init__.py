@@ -5,7 +5,7 @@ __status__ = "alpha"
 
 # Public API (fill these as you implement modules)
 try:
-    from .registry.prompt_registry import PromptRegistry  # noqa: F401
+    from .prompts.registry import PromptRegistry  # noqa: F401
 except Exception:  # modules are stubs right now
     class PromptRegistry:  # type: ignore
         pass

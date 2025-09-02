@@ -34,7 +34,7 @@ In short: **Kontxt is the context brain for AI apps** — portable, observable, 
 
 ## 🌐 Project Links
 
-- 📦 [PyPI (placeholder)](https://pypi.org/project/kontxt/)  
+- 📦 [PyPI](https://pypi.org/project/kontxt/)  
 - 🏠 [GitHub Repository](https://github.com/raiselab-ai/kontxt)  
 - 📖 Documentation (coming soon)  
 
