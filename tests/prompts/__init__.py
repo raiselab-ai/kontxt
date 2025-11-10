@@ -1,1 +1,0 @@
-"""Prompts test module initialization."""

@@ -124,3 +124,15 @@ logs/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Local testing playground - DO NOT COMMIT
+playground/
+playground/**
+*.playground.py
+test_playground.py
+.kontxt/
+.kontxt/**
+
+# UDO examples (private project)
+examples/udo_*.py
+examples/*udo*.py 

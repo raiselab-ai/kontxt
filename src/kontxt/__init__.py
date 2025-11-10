@@ -1,28 +1,25 @@
-"""Kontxt — framework-agnostic context management for AI apps."""
+"""Public package exports."""
 
-__version__ = "0.1.0"  # keep in sync with pyproject if not using dynamic version
-__status__ = "alpha"
+from .context import Context
+from .memory import Cache, Memory, Scratchpad
+from .phases import PhaseBuilder, PhaseConfig
+from .state import State
+from .tokens import HeuristicTokenCounter, TokenCounter, TiktokenTokenCounter
+from .types import Format
 
-# Public API (fill these as you implement modules)
-try:
-    from .prompts.registry import PromptRegistry  # noqa: F401
-except Exception:  # modules are stubs right now
-    class PromptRegistry:  # type: ignore
-        pass
+__all__ = [
+    # Core classes
+    "Cache",
+    "Context",
+    "HeuristicTokenCounter",
+    "Memory",
+    "PhaseBuilder",
+    "PhaseConfig",
+    "Scratchpad",
+    "State",
+    "TokenCounter",
+    "TiktokenTokenCounter",
+    # Enums
+    "Format",
+]
 
-try:
-    from .store.context_store import Context  # noqa: F401
-except Exception:
-    class Context:  # type: ignore
-        pass
-
-try:
-    from .memory.memory_manager import MemoryManager  # noqa: F401
-except Exception:
-    class MemoryManager:  # type: ignore
-        pass
-
-def main() -> None:
-    """Entry point for `kontxt` console script."""
-    from .cli import app
-    app()
