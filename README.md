@@ -1,52 +1,232 @@
-# Kontxt
+# kontxt
 
-![PyPI](https://img.shields.io/pypi/v/kontxt?color=blue)
-![Python](https://img.shields.io/pypi/pyversions/kontxt)
-![License](https://img.shields.io/github/license/raiselab-ai/kontxt)
-![Tests](https://img.shields.io/github/actions/workflow/status/raiselab-ai/kontxt/ci.yml?label=tests)
-![Coverage](https://img.shields.io/codecov/c/github/raiselab-ai/kontxt)
-![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)
-![Status](https://img.shields.io/badge/status-early%20alpha-orange)
+**Context engineering for production AI systems**
 
----
+Most AI projects fail not because of bad models, but because of bad context. kontxt solves this.
 
-**Kontxt** is an **early alpha** Python library focused exclusively on **context management for AI applications**.  
+## The Problem
 
-Most existing solutions (LangChain, LlamaIndex, etc.) tie memory and context handling to heavy orchestration frameworks. Kontxt aims to fill the gap by providing a **lightweight, framework-agnostic layer** dedicated to managing:
+**85% of AI projects fail to deliver on their promises** (Gartner). The root cause isn't model quality—it's context engineering:
 
-- 🗂 **Prompt registries** — versioned, declarative system and role prompts  
-- 🧠 **Context stores** — structured conversation history (threads, episodes, turns, artifacts)  
-- 💾 **Memory managers** — short-term & long-term memory with TTL, tags, and scopes  
-- ✍️ **Summarizers** — configurable strategies (rolling, hierarchical, focus-conditioned)  
-- 🛡 **Policies** — redaction, safety filters, and customizable ingest/render hooks  
+- ❌ **Context overload** - Passing too much irrelevant data → hallucinations, high costs
+- ❌ **Missing context** - Omitting critical information → poor decisions
+- ❌ **No memory** - Long conversations overflow context windows → agent amnesia
+- ❌ **Poor formatting** - Unstructured data → model confusion
+- ❌ **No observability** - Can't debug production failures
 
-In short: **Kontxt is the context brain for AI apps** — portable, observable, and deterministic.
+> *"Context engineering is the new skill in AI. It is about providing the right information and tools, in the right format, at the right time."* — Philipp Schmid
 
----
+## The Solution
 
-## 🚧 Status
+**kontxt** is a lightweight library that gives you production-grade context control:
 
-- Version: `0.1.0`  
-- Maturity: **Early Alpha** — expect rapid iteration and breaking changes  
-- Not production-ready yet
+- 🎯 **Budget control** - Set token limits, auto-trim intelligently
+- 🧠 **Memory primitives** - Scratchpads, vector stores, persistence
+- 🔄 **Multi-phase flows** - Coordinate complex agent workflows
+- 📊 **Token observability** - Track usage, debug context issues
+- 🔌 **Vendor-agnostic** - Works with OpenAI, Anthropic, Gemini, or any LLM
+- 🔒 **Type-safe** - Full type hints, IDE autocomplete, zero magic
 
----
+## Key Features
 
-## 🌐 Project Links
+- **Context composition** with ordered sections, lazy evaluation, and multiple render formats (OpenAI, Anthropic, Gemini)
+- **Memory primitives** including scratchpads, vector stores, and configurable backends
+- **Phase templates** for multi-stage flows with transition validation
+- **Token budgeting** with automatic trimming and priority management
+- **State management** for session tracking and workflow coordination
+- **Production-ready** with comprehensive tests and typed APIs
 
-- 📦 [PyPI](https://pypi.org/project/kontxt/)  
-- 🏠 [GitHub Repository](https://github.com/raiselab-ai/kontxt)  
-- 📖 Documentation (coming soon)  
+## Installation
 
----
+> **⚠️ Alpha Release**: This is an alpha version (0.1.0a1) for early testing. APIs may change before the stable 0.1.0 release.
 
-## 🤝 Contributing
+```bash
+pip install kontxt
+```
 
-Contributions, ideas, and feedback are welcome!  
-Please open an [issue](https://github.com/raiselab-ai/kontxt/issues) or submit a PR.  
+Or install from source:
 
----
+```bash
+uv pip install -e .
+```
 
-## 📜 License
+Development tooling:
 
-Licensed under the **Apache 2.0** License – see [LICENSE](LICENSE) for details.
+```bash
+uv pip install -e '.[dev]'
+```
+
+## Quick Start
+
+```python
+from kontxt import Context
+
+context = Context()
+context.add("system", "You are a dental triage assistant.")
+context.add("instructions", "Answer using the provided chart.")
+context.add("patient", {"name": "Alex", "age": 41})
+context.add("messages", {"role": "user", "content": "My tooth aches."})
+
+prompt = context.render()
+# -> XML-style prompt that preserves section boundaries
+```
+
+### Memory Integration
+
+```python
+from kontxt import Memory
+
+memory = Memory()
+memory.store("patient:123", {"allergy": "penicillin"}, meta={"patient_id": "123"})
+memory.scratchpad.write("plan", ["Collect symptoms", "Check red flags"])
+
+plan = memory.scratchpad.read("plan")
+allergies = memory.retrieve("penicillin", filters={"patient_id": "123"})
+```
+
+### Gemini Integration
+
+```python
+# Recommended: Explicit imports (scales better)
+from kontxt import Context, Memory
+from kontxt.types import Format
+
+# Create context with memory
+memory = Memory()
+ctx = Context(memory=memory)
+
+# Add system prompt and user message
+ctx.add("system", "You are a helpful AI assistant")
+ctx.add("messages", {"role": "user", "content": "Explain quantum computing"})
+
+# Render for Gemini
+payload = ctx.render(
+    format=Format.GEMINI,  # Type-safe enum with IDE autocomplete
+    generation_config={"temperature": 0.7}
+)
+
+# Call Gemini API (you control the API call)
+from google import genai
+client = genai.Client(api_key="...")
+response = client.models.generate_content(model="gemini-2.0-flash-exp", **payload)
+
+# Add response back to context
+ctx.add_response(response.text)
+```
+
+### Import Patterns
+
+kontxt supports two import styles:
+
+```python
+# ✅ Recommended: Explicit imports (better for large projects)
+from kontxt import Context, Memory, State
+from kontxt.types import Format
+
+# ✅ Also works: Convenience imports (quick scripts)
+from kontxt import Context, Memory, State, Format
+```
+
+Both patterns work identically - choose based on your preference and project size.
+
+### Available Render Formats
+
+```python
+from kontxt.types import Format
+
+Format.TEXT       # Plain text with XML-like tags
+Format.OPENAI     # OpenAI chat completion format
+Format.ANTHROPIC  # Anthropic messages API format
+Format.GEMINI     # Google Gemini API format
+```
+
+See [`examples/`](examples/) for complete examples:
+- [`simple_rag.py`](examples/simple_rag.py) - Basic RAG workflow
+
+## Why kontxt vs LangChain/LlamaIndex?
+
+**Most frameworks abstract the wrong things.**
+
+They abstract the LLM (doesn't matter—all models work similarly).
+They don't abstract context (matters most—it's complex and error-prone).
+
+**kontxt inverts this:**
+- ✅ LLM is your responsibility (use any vendor, local models, whatever)
+- ✅ Context is our responsibility (we make it production-grade)
+
+| Feature | kontxt | LangChain | LlamaIndex |
+|---------|--------|-----------|------------|
+| **Learning curve** | 5 minutes | Hours | Hours |
+| **Dependencies** | 2 (pydantic, tiktoken) | 20+ | 15+ |
+| **Token budgets** | ✅ Built-in | ❌ Manual | ❌ Manual |
+| **Multi-phase flows** | ✅ Native | ⚠️ Custom | ⚠️ Custom |
+| **Memory operations** | ✅ 4 primitives | ⚠️ Complex | ⚠️ Complex |
+| **Vendor lock-in** | ❌ None | ⚠️ High | ⚠️ High |
+| **Type safety** | ✅ Full | ⚠️ Partial | ⚠️ Partial |
+
+**TL;DR:** We do one thing (context engineering) and do it perfectly. They try to do everything, and context becomes an afterthought.
+
+## Built for Production
+
+kontxt is built on research-backed context engineering principles:
+
+### The Four Operations (Lance Martin, 2025)
+
+1. **WRITE** - Externalize context beyond the window
+2. **SELECT** - Retrieve relevant context intelligently
+3. **COMPRESS** - Reduce tokens while preserving signal
+4. **ISOLATE** - Partition context for clarity
+
+```python
+mem.scratchpad.write("plan", data)           # WRITE
+notes = mem.retrieve("plan", filters={...})  # SELECT
+ctx.set_budget(max_tokens=4000, priority=[]) # COMPRESS
+sub = ctx.fork(include=["system"])           # ISOLATE
+```
+
+### Why This Matters
+
+Research shows:
+- **Context position matters**: LLMs exhibit attention bias—details in the middle get lost
+- **More ≠ better**: A model given 46 tools fails; given 19 tools succeeds (same context window)
+- **Format matters**: How you structure data affects model performance as much as what data you include
+
+kontxt handles these nuances so you don't have to.
+
+## Who This Is For
+
+Choose kontxt if you're building:
+- 🏥 **Multi-phase agents** (medical triage, customer support, legal analysis)
+- 💬 **Long conversations** (therapy bots, tutoring, extended troubleshooting)
+- 💰 **Cost-sensitive systems** (token budgets matter, can't blow $500 on one session)
+- 🔍 **Observable AI** (need to debug why agents fail in production)
+- 🔌 **Vendor-agnostic apps** (might switch from GPT-4 to Claude to Gemini)
+
+**If your AI needs to work in production, not just demos, use kontxt.**
+
+## Documentation
+
+Documentation scaffolding lives under `docs/`. We plan to publish the first
+version once the API stabilises. Contributions are welcome—open an issue if you
+spot gaps or inconsistencies.
+
+## Development
+
+```bash
+uv sync
+uv run pytest
+uv run ruff check .
+```
+
+See [CONTRIBUTING](CONTRIBUTING.md) for detailed guidance.
+
+## Roadmap
+
+- Additional storage backends (Qdrant, Pinecone, etc.)
+- Built-in compression helpers powered by user-supplied LLMs
+- Observability hooks for prompt debugging and token telemetry
+- Async APIs once ergonomics questions are resolved
+
+## License
+
+Licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
