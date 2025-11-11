@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import pytest
-
 from kontxt import Context, PhaseConfig, State
-from kontxt.exceptions import InvalidPhaseTransitionError
 
 
 def test_phase_builder_customization() -> None:
@@ -22,13 +19,20 @@ def test_phase_builder_customization() -> None:
     assert isinstance(phase, PhaseConfig)
     assert phase.tools == ["draft_prescription"]
     assert phase.max_history == 5
+    assert phase.transitions_to == ["done"]
 
 
-def test_state_phase_transitions() -> None:
+def test_state_phase_tracking() -> None:
+    """Test that State tracks phase changes (transitions validated by phases, not State)."""
     state = State({"session": {"phase": "complaint"}})
-    state.configure_transitions({"complaint": ["history"], "history": ["assessment"]})
-    state.set_phase("history")
 
-    with pytest.raises(InvalidPhaseTransitionError):
-        state.set_phase("complaint")
+    # State simply tracks current phase
+    assert state.phase() == "complaint"
+
+    # State allows any phase transition (validation is phase's responsibility)
+    state.set_phase("history")
+    assert state.phase() == "history"
+
+    state.set_phase("assessment")
+    assert state.phase() == "assessment"
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections import abc
 from copy import deepcopy
-from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
+from enum import Enum
+from typing import Any, Dict, Mapping, MutableMapping, Sequence
 
-from .exceptions import InvalidPhaseTransitionError
+from .exceptions import InvalidPhaseError
 
 
 class State:
@@ -14,6 +15,23 @@ class State:
 
     The default configuration matches the design document and expects the phase
     to live under ``state['session']['phase']``.
+
+    Args:
+        initial: Initial state data
+        phase_path: Path to phase value in state dict
+        phases: Optional Enum class for phase validation
+
+    Examples:
+        >>> from enum import Enum
+        >>> class Phases(str, Enum):
+        ...     INITIAL = "initial"
+        ...     COMPLETE = "complete"
+        >>> state = State(
+        ...     initial={"session": {"phase": "initial"}},
+        ...     phases=Phases
+        ... )
+        >>> state.set_phase(Phases.COMPLETE)  # Valid
+        >>> state.set_phase("invalid")  # Raises InvalidPhaseError
     """
 
     def __init__(
@@ -21,13 +39,20 @@ class State:
         initial: Mapping[str, Any] | None = None,
         *,
         phase_path: Sequence[str] = ("session", "phase"),
-        transitions: Mapping[str, Iterable[str]] | None = None,
+        phases: type[Enum] | None = None,
     ) -> None:
         self._data: Dict[str, Any] = deepcopy(initial) if initial else {}
         self._phase_path = tuple(phase_path)
-        self._transitions: Dict[str, set[str]] = {
-            phase: set(targets) for phase, targets in (transitions or {}).items()
-        }
+        self._phases = phases
+
+        # Validate initial phase if phases enum provided
+        if self._phases:
+            current = self.phase()
+            if current and not self._is_valid_phase(current):
+                allowed = [p.value for p in self._phases]
+                raise InvalidPhaseError(
+                    f"Initial phase '{current}' is not valid. Allowed phases: {allowed}"
+                )
 
     # ------------------------------------------------------------------
     # Basic mapping helpers
@@ -62,6 +87,12 @@ class State:
     # ------------------------------------------------------------------
     # Phase helpers
     # ------------------------------------------------------------------
+    def _is_valid_phase(self, phase: str) -> bool:
+        """Check if phase is valid according to enum."""
+        if not self._phases:
+            return True  # No validation if phases not set
+        return phase in [p.value for p in self._phases]
+
     def phase(self) -> str | None:
         """Return the current phase name, if configured."""
         phase_value = self.get_path(self._phase_path)
@@ -71,20 +102,29 @@ class State:
             raise TypeError("phase value must be a string")
         return phase_value
 
-    def set_phase(self, phase: str) -> None:
-        """Update the current phase while validating transition rules."""
-        current = self.phase()
-        if current is not None and current in self._transitions:
-            allowed = self._transitions[current]
-            if allowed and phase not in allowed:
-                raise InvalidPhaseTransitionError(
-                    f"Cannot transition from '{current}' to '{phase}'. "
-                    f"Allowed: {sorted(allowed)}"
-                )
-        self.set_path(self._phase_path, phase)
+    def set_phase(self, phase: str | Enum) -> None:
+        """Update the current phase with validation.
 
-    def configure_transitions(self, transitions: Mapping[str, Iterable[str]]) -> None:
-        """Update the phase transition mapping."""
-        self._transitions = {phase: set(targets) for phase, targets in transitions.items()}
+        Args:
+            phase: New phase (string or Enum member)
+
+        Raises:
+            InvalidPhaseError: If phase is not in allowed phases
+
+        Examples:
+            >>> state.set_phase("complete")
+            >>> state.set_phase(Phases.COMPLETE)  # Also works with enum
+        """
+        # Convert enum to string
+        phase_str = phase.value if isinstance(phase, Enum) else phase
+
+        # Validate if phases enum provided
+        if self._phases and not self._is_valid_phase(phase_str):
+            allowed = [p.value for p in self._phases]
+            raise InvalidPhaseError(
+                f"Cannot set phase to '{phase_str}'. Allowed phases: {allowed}"
+            )
+
+        self.set_path(self._phase_path, phase_str)
 
 
