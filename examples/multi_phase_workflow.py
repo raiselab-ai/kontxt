@@ -1,10 +1,13 @@
-"""Demo of new API features: SectionType, State validation, and advance_phase.
+"""Multi-phase workflow example with state management and type-safe API.
 
-This example demonstrates the enhanced DX introduced in v0.1.0a1:
+This example demonstrates building production-ready multi-phase workflows:
 - Type-safe section references (SystemPrompt, ChatMessages)
-- State with phase validation
-- Context.advance_phase() with transition validation
-- Context.add_user_message() helper
+- State initialization with phase validation
+- Phase configuration with transition rules
+- Context.advance_phase() with automatic validation
+- Workflow coordination for complex agent systems
+
+Use case: Medical triage assistant with intake → assessment → completion workflow.
 """
 
 from enum import Enum

@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Examples
 - `simple_rag.py`: Basic RAG workflow demonstrating core features
-- `new_api_demo.py`: Demonstrates new type-safe API features
+- `multi_phase_workflow.py`: Multi-phase workflow with state management and type-safe API
 
 #### Developer Experience
 - Comprehensive test suite (43 tests passing)

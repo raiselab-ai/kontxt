@@ -59,10 +59,14 @@ uv pip install -e '.[dev]'
 ## Quick Start
 
 ```python
-from kontxt import Context
+from kontxt import Context, SystemPrompt
 
 context = Context()
-context.add("system", "You are a dental triage assistant.")
+
+# Type-safe section references (recommended)
+context.add(SystemPrompt, "You are a dental triage assistant.")
+
+# Or use strings (also works)
 context.add("instructions", "Answer using the provided chart.")
 context.add("patient", {"name": "Alex", "age": 41})
 context.add("messages", {"role": "user", "content": "My tooth aches."})
@@ -87,17 +91,17 @@ allergies = memory.retrieve("penicillin", filters={"patient_id": "123"})
 ### Gemini Integration
 
 ```python
-# Recommended: Explicit imports (scales better)
-from kontxt import Context, Memory
-from kontxt.types import Format
+from kontxt import Context, Memory, SystemPrompt, Format
 
 # Create context with memory
 memory = Memory()
 ctx = Context(memory=memory)
 
-# Add system prompt and user message
-ctx.add("system", "You are a helpful AI assistant")
-ctx.add("messages", {"role": "user", "content": "Explain quantum computing"})
+# Type-safe section references
+ctx.add(SystemPrompt, "You are a helpful AI assistant")
+
+# Convenient helper for user messages
+ctx.add_user_message("Explain quantum computing")
 
 # Render for Gemini
 payload = ctx.render(
@@ -114,34 +118,93 @@ response = client.models.generate_content(model="gemini-2.0-flash-exp", **payloa
 ctx.add_response(response.text)
 ```
 
-### Import Patterns
-
-kontxt supports two import styles:
+### Multi-Phase Workflows with State
 
 ```python
-# ✅ Recommended: Explicit imports (better for large projects)
-from kontxt import Context, Memory, State
-from kontxt.types import Format
+from enum import Enum
+from kontxt import Context, State, SystemPrompt, ChatMessages, Format
 
-# ✅ Also works: Convenience imports (quick scripts)
-from kontxt import Context, Memory, State, Format
+# Define workflow phases
+class Phases(str, Enum):
+    INTAKE = "intake"
+    ASSESSMENT = "assessment"
+    COMPLETE = "complete"
+
+# Initialize state with phase validation
+state = State(
+    initial={"session": {"phase": "intake"}},
+    phases=Phases  # Validates phase values at runtime
+)
+
+# Initialize context with state
+ctx = Context(state=state)
+ctx.add(SystemPrompt, "You are a medical triage assistant")
+
+# Configure phases with type-safe section references
+ctx.phase(Phases.INTAKE).configure(
+    instructions="Gather patient information",
+    includes=[SystemPrompt, ChatMessages],  # Type-safe!
+    transitions_to=["assessment"],  # Only assessment allowed from intake
+    max_history=10
+)
+
+ctx.phase(Phases.ASSESSMENT).configure(
+    instructions="Assess patient condition",
+    includes=[SystemPrompt, ChatMessages],
+    transitions_to=["complete"],
+    max_history=5
+)
+
+# Use in workflow
+ctx.add_user_message("I have a headache")
+payload = ctx.render(phase=state.phase(), format=Format.GEMINI)
+
+# ... call LLM, get response ...
+
+ctx.add_response(response.text)
+
+# Advance phase with validation
+ctx.advance_phase(Phases.ASSESSMENT)  # ✅ Validates transition is allowed
 ```
 
-Both patterns work identically - choose based on your preference and project size.
+### Import Patterns
+
+```python
+# ✅ Recommended: Import from kontxt
+from kontxt import Context, Memory, State, Format, SystemPrompt, ChatMessages
+
+# ✅ Or explicit from types (for organization)
+from kontxt import Context, Memory, State
+from kontxt.types import Format, SystemPrompt, ChatMessages
+```
 
 ### Available Render Formats
 
 ```python
-from kontxt.types import Format
-
 Format.TEXT       # Plain text with XML-like tags
 Format.OPENAI     # OpenAI chat completion format
 Format.ANTHROPIC  # Anthropic messages API format
 Format.GEMINI     # Google Gemini API format
 ```
 
+### Built-in Section Types
+
+```python
+from kontxt import SystemPrompt, ChatMessages, Instructions, Tools
+
+# Use for type safety and IDE autocomplete
+ctx.add(SystemPrompt, "You are helpful")
+ctx.add(ChatMessages, {"role": "user", "content": "Hello"})
+
+# Or create custom section types
+from kontxt import SectionType
+PatientData = SectionType("patient")
+ctx.add(PatientData, {"name": "John", "age": 30})
+```
+
 See [`examples/`](examples/) for complete examples:
 - [`simple_rag.py`](examples/simple_rag.py) - Basic RAG workflow
+- [`multi_phase_workflow.py`](examples/multi_phase_workflow.py) - Multi-phase workflow with state management
 
 ## Why kontxt vs LangChain/LlamaIndex?
 
