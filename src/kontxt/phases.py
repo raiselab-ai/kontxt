@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Callable, List, Optional, Sequence, Union
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ class PhaseBuilder:
         memory_includes: Optional[Sequence[str]] = None,
         tools: Optional[Sequence[str]] = None,
         max_history: Optional[int] = None,
-        transitions_to: Optional[Sequence[str]] = None,
+        transitions_to: Optional[Sequence[Union[str, Enum]]] = None,
     ) -> "PhaseBuilder":
         if system is not None:
             self._config.system = system
@@ -58,7 +59,11 @@ class PhaseBuilder:
         if max_history is not None:
             self._config.max_history = max_history
         if transitions_to is not None:
-            self._config.transitions_to = list(transitions_to)
+            # Convert Enums to strings
+            self._config.transitions_to = [
+                item.value if isinstance(item, Enum) else item
+                for item in transitions_to
+            ]
         return self
 
 

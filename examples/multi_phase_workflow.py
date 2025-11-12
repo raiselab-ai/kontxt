@@ -28,19 +28,17 @@ def main():
     print("=" * 80)
     print()
 
-    # Initialize state with phase validation
+    # Initialize state with current_phase parameter (NEW in v0.1.0a3!)
     state = State(
         initial={
-            "session": {
-                "id": "demo-001",
-                "phase": TriagePhases.INTAKE,
-            },
+            "session": {"id": "demo-001"},
             "patient": {
                 "name": "Alice",
                 "age": 28,
                 "locale": "en-US",
             },
         },
+        current_phase=TriagePhases.INTAKE,  # Much cleaner!
         phases=TriagePhases,  # Validates phase values
     )
 
@@ -59,14 +57,14 @@ def main():
     ctx.phase(TriagePhases.INTAKE).configure(
         instructions="Gather the patient's chief complaint and basic information.",
         includes=[SystemPrompt, ChatMessages],  # Type-safe!
-        transitions_to=["assessment"],  # Only assessment allowed from intake
+        transitions_to=[TriagePhases.ASSESSMENT],  # Type-safe Enum! (strings also work)
         max_history=10,
     )
 
     ctx.phase(TriagePhases.ASSESSMENT).configure(
         instructions="Assess the patient's condition based on gathered information.",
         includes=[SystemPrompt, ChatMessages],
-        transitions_to=["complete"],
+        transitions_to=[TriagePhases.COMPLETE],  # Type-safe Enum!
         max_history=5,
     )
 
@@ -82,8 +80,8 @@ def main():
     print("User: I've been experiencing headaches for the past week.")
     print()
 
-    # Render for current phase
-    rendered = ctx.render(phase=state.phase(), format=Format.TEXT)
+    # Render for current phase (automatically uses state.phase()!)
+    rendered = ctx.render(format=Format.TEXT)  # No need to specify phase!
     print("Rendered prompt preview:")
     print(rendered[:200] + "..." if len(rendered) > 200 else rendered)
     print()
@@ -112,8 +110,8 @@ def main():
     print("User: It's a throbbing pain, usually on the right side.")
     print()
 
-    # Render assessment phase
-    rendered = ctx.render(phase=state.phase(), format=Format.TEXT)
+    # Render assessment phase (automatically uses state.phase()!)
+    rendered = ctx.render(format=Format.TEXT)  # Still no need to specify phase!
     print("Rendered prompt preview:")
     print(rendered[:200] + "..." if len(rendered) > 200 else rendered)
     print()
@@ -139,14 +137,14 @@ def main():
 
     # Create new session to demo validation
     state2 = State(
-        initial={"session": {"phase": "intake"}},
+        current_phase="intake",  # Using new API
         phases=TriagePhases,
     )
     ctx2 = Context(state=state2)
 
     ctx2.phase(TriagePhases.INTAKE).configure(
         instructions="Intake phase",
-        transitions_to=["assessment"],  # Only assessment allowed
+        transitions_to=[TriagePhases.ASSESSMENT],  # Type-safe! (strings also work)
     )
 
     print(f"Current phase: {state2.phase()}")
@@ -187,9 +185,20 @@ def main():
     print("   - ctx.add_user_message(content) for cleaner code")
     print("   - ctx.add_response(text) for assistant responses")
     print()
+    print("✅ Auto-Phase Rendering (NEW in v0.1.0a3):")
+    print("   - ctx.render() automatically uses current phase")
+    print("   - No need to pass phase parameter!")
+    print("   - ctx.current_phase() to check current phase")
+    print()
+    print("✅ Cleaner State API (NEW in v0.1.0a3):")
+    print("   - State(current_phase='intake') instead of nested dict")
+    print("   - Single source of truth for workflow phase")
+    print()
     print("✅ Enum Support:")
-    print("   - Works with Enum phases for type safety")
-    print("   - Also accepts strings for flexibility")
+    print("   - ctx.phase(TriagePhases.INTAKE) accepts Enums")
+    print("   - ctx.advance_phase(TriagePhases.ASSESSMENT) accepts Enums")
+    print("   - transitions_to=[TriagePhases.COMPLETE] accepts Enums")
+    print("   - Strings still work for flexibility")
     print()
 
 

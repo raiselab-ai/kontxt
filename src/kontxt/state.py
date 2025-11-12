@@ -16,7 +16,8 @@ class State:
     to live under ``state['session']['phase']``.
 
     Args:
-        initial: Initial state data
+        initial: Initial state data (other session data)
+        current_phase: Starting phase for the workflow (source of truth)
         phase_path: Path to phase value in state dict
         phases: Optional Enum class for phase validation
 
@@ -25,8 +26,12 @@ class State:
         >>> class Phases(str, Enum):
         ...     INITIAL = "initial"
         ...     COMPLETE = "complete"
+        >>> # Simple usage with current_phase
+        >>> state = State(current_phase="initial", phases=Phases)
+        >>> # With additional state data
         >>> state = State(
-        ...     initial={"session": {"phase": "initial"}},
+        ...     initial={"user_id": "123"},
+        ...     current_phase="initial",
         ...     phases=Phases
         ... )
         >>> state.set_phase(Phases.COMPLETE)  # Valid
@@ -37,6 +42,7 @@ class State:
         self,
         initial: Mapping[str, Any] | None = None,
         *,
+        current_phase: str | Enum | None = None,
         phase_path: Sequence[str] = ("session", "phase"),
         phases: type[Enum] | None = None,
     ) -> None:
@@ -44,8 +50,18 @@ class State:
         self._phase_path = tuple(phase_path)
         self._phases = phases
 
-        # Validate initial phase if phases enum provided
-        if self._phases:
+        # Set current_phase if provided (source of truth)
+        if current_phase is not None:
+            phase_str = current_phase.value if isinstance(current_phase, Enum) else current_phase
+            # Validate against phases enum if provided
+            if self._phases and not self._is_valid_phase(phase_str):
+                allowed = [p.value for p in self._phases]
+                raise InvalidPhaseError(
+                    f"Initial phase '{phase_str}' is not valid. Allowed phases: {allowed}"
+                )
+            self.set_path(self._phase_path, phase_str)
+        elif self._phases:
+            # Validate existing phase in initial data if phases enum provided
             current = self.phase()
             if current and not self._is_valid_phase(current):
                 allowed = [p.value for p in self._phases]
