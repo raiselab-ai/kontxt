@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Sequence
 
 from pydantic import BaseModel
 
-from .exceptions import BudgetExceededError, InvalidPhaseError, UnknownSectionError
+from .exceptions import BudgetExceededError, InvalidPhaseError, InvalidPhaseTransitionError, UnknownSectionError
 from .phases import PhaseBuilder, PhaseConfig
 from .tokens import HeuristicTokenCounter, TokenCounter
-from .types import Format, RenderFormat, SectionItem
+from .types import Format, RenderFormat, SectionItem, SectionType
 from .utils import BudgetManager, ensure_serializable, render_anthropic, render_gemini, render_openai, render_text
 
 if TYPE_CHECKING:
     from .memory import Memory
+    from .state import State
 
 
 @dataclass
@@ -54,6 +55,7 @@ class Context:
         *,
         token_counter: TokenCounter | None = None,
         memory: "Optional[Memory]" = None,
+        state: "Optional[State]" = None,
     ) -> None:
         self._sections: "OrderedDict[str, List[SectionItem]]" = OrderedDict()
         self._phases: Dict[str, PhaseConfig] = {}
@@ -62,22 +64,39 @@ class Context:
         self._token_counter = token_counter or HeuristicTokenCounter()
         self._output_schema: type[BaseModel] | None = None
         self._memory = memory
+        self._state = state
 
     # ------------------------------------------------------------------
     # Section management
     # ------------------------------------------------------------------
-    def add(self, name: str, content: SectionItem | Iterable[SectionItem]) -> "Context":
-        """Append *content* to *name*, creating the section if necessary."""
-        if name not in self._sections:
-            self._sections[name] = []
+    def add(self, name: str | SectionType, content: SectionItem | Iterable[SectionItem]) -> "Context":
+        """Append *content* to *name*, creating the section if necessary.
+
+        Args:
+            name: Section name (string or SectionType)
+            content: Content to add to the section
+
+        Examples:
+            >>> from kontxt.types import SystemPrompt, ChatMessages
+            >>> ctx.add(SystemPrompt, "You are helpful")
+            >>> ctx.add("custom_section", "Custom data")
+            >>> ctx.add(ChatMessages, {"role": "user", "content": "Hello"})
+        """
+        # Convert SectionType to string
+        section_name = str(name) if isinstance(name, SectionType) else name
+
+        if section_name not in self._sections:
+            self._sections[section_name] = []
 
         items = self._normalize_content(content)
-        self._sections[name].extend(items)
+        self._sections[section_name].extend(items)
         return self
 
-    def replace(self, name: str, content: SectionItem | Iterable[SectionItem]) -> "Context":
+    def replace(self, name: str | SectionType, content: SectionItem | Iterable[SectionItem]) -> "Context":
         """Replace *name* with *content*, creating the section if necessary."""
-        self._sections[name] = self._normalize_content(content)
+        # Convert SectionType to string
+        section_name = str(name) if isinstance(name, SectionType) else name
+        self._sections[section_name] = self._normalize_content(content)
         return self
 
     def get_section(self, name: str) -> List[SectionItem] | None:
@@ -102,6 +121,23 @@ class Context:
             raise UnknownSectionError(f"Section '{name}' does not exist.")
         return SectionHandle(self, name)
 
+    def add_user_message(self, content: str) -> "Context":
+        """Add a user message to the conversation.
+
+        This is a convenience helper for adding user messages to the messages section.
+
+        Args:
+            content: The message content from the user
+
+        Returns:
+            Self for method chaining
+
+        Examples:
+            >>> ctx.add_user_message("Hello!")
+            >>> # Equivalent to: ctx.add("messages", {"role": "user", "content": "Hello!"})
+        """
+        return self.add("messages", {"role": "user", "content": content})
+
     def add_response(self, text: str, role: str = "assistant") -> "Context":
         """Add LLM response to messages section.
 
@@ -114,6 +150,10 @@ class Context:
 
         Returns:
             Self for method chaining
+
+        Examples:
+            >>> ctx.add_response("I'm happy to help!")
+            >>> # Equivalent to: ctx.add("messages", {"role": "assistant", "content": "I'm happy to help!"})
         """
         return self.add("messages", {"role": role, "content": text})
 
@@ -138,6 +178,65 @@ class Context:
         if name not in self._phases:
             self._phases[name] = PhaseConfig(name=name)
         return PhaseBuilder(self._phases[name])
+
+    def advance_phase(self, next_phase: str) -> "Context":
+        """Advance to the next phase with transition validation.
+
+        This method validates that the transition is allowed according to the
+        current phase's `transitions_to` configuration, then updates the state.
+
+        Args:
+            next_phase: The phase to transition to (string or Enum member)
+
+        Raises:
+            ValueError: If no state is configured
+            InvalidPhaseError: If current phase is not registered
+            InvalidPhaseTransitionError: If transition is not allowed
+
+        Returns:
+            Self for method chaining
+
+        Examples:
+            >>> from enum import Enum
+            >>> class Phases(str, Enum):
+            ...     INITIAL = "initial"
+            ...     COMPLETE = "complete"
+            >>> state = State(initial={"session": {"phase": "initial"}})
+            >>> ctx = Context(state=state)
+            >>> ctx.phase("initial").configure(transitions_to=["complete"])
+            >>> ctx.advance_phase(Phases.COMPLETE)  # Valid transition
+        """
+        if self._state is None:
+            raise ValueError("Cannot advance phase: no State configured in Context")
+
+        # Get current phase from state
+        current_phase = self._state.phase()
+        if current_phase is None:
+            raise InvalidPhaseError("Cannot advance phase: current phase is None")
+
+        # Convert enum to string if needed
+        from enum import Enum
+        next_phase_str = next_phase.value if isinstance(next_phase, Enum) else next_phase
+
+        # Check if current phase is registered
+        if current_phase not in self._phases:
+            raise InvalidPhaseError(
+                f"Current phase '{current_phase}' is not registered. "
+                "Configure it with ctx.phase(name).configure(...)"
+            )
+
+        # Get phase config and validate transition
+        config = self._phases[current_phase]
+        if config.transitions_to is not None:
+            if next_phase_str not in config.transitions_to:
+                raise InvalidPhaseTransitionError(
+                    f"Cannot transition from '{current_phase}' to '{next_phase_str}'. "
+                    f"Allowed transitions: {config.transitions_to}"
+                )
+
+        # Update state (this also validates against State's phases enum if configured)
+        self._state.set_phase(next_phase_str)
+        return self
 
     # ------------------------------------------------------------------
     # Output schema
@@ -203,7 +302,7 @@ class Context:
         """Return the approximate token count for currently registered sections."""
         evaluated = self._evaluate_sections(self._sections)
         budget_manager = BudgetManager(self._token_counter)
-        materialized = budget_manager.enforce(
+        materialized: MutableMapping[str, List[Any]] = budget_manager.enforce(
             evaluated,
             max_tokens=None,
             priority=None,
@@ -227,7 +326,7 @@ class Context:
         except KeyError as exc:
             raise InvalidPhaseError(f"Phase '{phase}' is not registered.") from exc
 
-        ordered = OrderedDict()
+        ordered: "OrderedDict[str, List[SectionItem]]" = OrderedDict()
 
         # Add phase-specific sections
         if config.system is not None:
@@ -240,14 +339,17 @@ class Context:
 
         # Add included sections from context
         for name in config.includes:
-            if name in self._sections:
-                section_data = self._sections[name]
+            # Convert SectionType to string
+            section_name = str(name) if isinstance(name, SectionType) else name
+
+            if section_name in self._sections:
+                section_data = self._sections[section_name]
 
                 # Apply max_history if this is messages section
-                if name == "messages" and config.max_history:
-                    section_data = section_data[-config.max_history :]
-
-                ordered[name] = section_data
+                if section_name == "messages" and config.max_history:
+                    ordered[section_name] = section_data[-config.max_history :]
+                else:
+                    ordered[section_name] = section_data
 
         # Pull from memory if available
         if memory is not None and config.memory_includes:
@@ -291,7 +393,7 @@ class Context:
             strict = self._budget.strict
 
         manager = BudgetManager(self._token_counter)
-        materialized = manager.enforce(sections, max_tokens=limit, priority=priority)
+        materialized: MutableMapping[str, List[Any]] = manager.enforce(sections, max_tokens=limit, priority=priority)
 
         if limit is not None and strict:
             total_tokens = sum(self._token_counter.estimate(items) for items in materialized.values())

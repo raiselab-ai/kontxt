@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Callable, List, Optional, Sequence, Union
+
+if TYPE_CHECKING:
+    from .types import SectionType
 
 
 @dataclass
@@ -35,7 +38,7 @@ class PhaseBuilder:
         *,
         system: Optional[str] = None,
         instructions: Optional[Union[str, Callable[[], str]]] = None,
-        includes: Optional[Sequence[str]] = None,
+        includes: Optional[Sequence[Union[str, "SectionType"]]] = None,
         memory_includes: Optional[Sequence[str]] = None,
         tools: Optional[Sequence[str]] = None,
         max_history: Optional[int] = None,
@@ -46,7 +49,8 @@ class PhaseBuilder:
         if instructions is not None:
             self._config.instructions = instructions
         if includes is not None:
-            self._config.includes = list(includes)
+            # Convert SectionType to strings
+            self._config.includes = [str(item) for item in includes]
         if memory_includes is not None:
             self._config.memory_includes = list(memory_includes)
         if tools is not None:

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from typing import Dict, Iterable, List, MutableMapping, Sequence
+from typing import Any, Dict, List, MutableMapping, Sequence
 
 from ..exceptions import BudgetExceededError
 from ..tokens import TokenCounter
-from ..types import SectionData
 
 
 class BudgetManager:
@@ -18,11 +16,11 @@ class BudgetManager:
 
     def enforce(
         self,
-        sections: MutableMapping[str, SectionData],
+        sections: MutableMapping[str, List[Any]],
         *,
         max_tokens: int | None = None,
         priority: Sequence[str] | None = None,
-    ) -> MutableMapping[str, SectionData]:
+    ) -> MutableMapping[str, List[Any]]:
         """Trim sections until they fit within *max_tokens*.
 
         Sections appearing earlier in *priority* are preserved preferentially.
@@ -30,7 +28,7 @@ class BudgetManager:
         if max_tokens is None:
             return sections
 
-        materialized: Dict[str, List] = {
+        materialized: Dict[str, List[Any]] = {
             name: list(items) for name, items in sections.items()
         }
 

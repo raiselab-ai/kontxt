@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, MutableSequence, Sequence
+from typing import Any, Mapping, Sequence
 
 from ..types import SectionData
 from .serialization import ensure_serializable
