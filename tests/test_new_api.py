@@ -398,3 +398,279 @@ def test_full_workflow_with_new_api():
     # Complete workflow
     ctx.advance_phase(TriagePhases.COMPLETE)
     assert state.phase() == "complete"
+
+
+# Test new v0.1.0a3 features: current_phase parameter and auto-rendering
+def test_state_with_current_phase_parameter():
+    """Test State initialization with current_phase parameter."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        COMPLETE = "complete"
+
+    # Simple usage - just current_phase
+    state = State(current_phase="initial", phases=TestPhases)
+    assert state.phase() == "initial"
+
+    # With enum
+    state = State(current_phase=TestPhases.INITIAL, phases=TestPhases)
+    assert state.phase() == "initial"
+
+    # With additional initial data
+    state = State(
+        initial={"user_id": "123"},
+        current_phase="initial",
+        phases=TestPhases,
+    )
+    assert state.phase() == "initial"
+    assert state.get_path(["user_id"]) == "123"
+
+
+def test_state_current_phase_validation():
+    """Test that current_phase is validated against phases enum."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        COMPLETE = "complete"
+
+    # Valid phase
+    state = State(current_phase="initial", phases=TestPhases)
+    assert state.phase() == "initial"
+
+    # Invalid phase
+    with pytest.raises(InvalidPhaseError) as exc_info:
+        State(current_phase="invalid", phases=TestPhases)
+
+    assert "Initial phase 'invalid' is not valid" in str(exc_info.value)
+    assert "initial" in str(exc_info.value)
+    assert "complete" in str(exc_info.value)
+
+
+def test_context_current_phase_method():
+    """Test Context.current_phase() returns phase from state."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        COMPLETE = "complete"
+
+    state = State(current_phase="initial", phases=TestPhases)
+    ctx = Context(state=state)
+
+    # Should return current phase
+    assert ctx.current_phase() == "initial"
+
+    # After advancing
+    ctx.phase("initial").configure(transitions_to=["complete"])
+    ctx.advance_phase("complete")
+    assert ctx.current_phase() == "complete"
+
+    # Without state
+    ctx_no_state = Context()
+    assert ctx_no_state.current_phase() is None
+
+
+def test_context_render_auto_uses_current_phase():
+    """Test that render() automatically uses state.phase() when no phase specified."""
+
+    class TestPhases(str, Enum):
+        INTAKE = "intake"
+        ASSESSMENT = "assessment"
+
+    state = State(current_phase="intake", phases=TestPhases)
+    ctx = Context(state=state)
+
+    ctx.add(SystemPrompt, "System instructions")
+    ctx.phase("intake").configure(
+        instructions="Intake instructions",
+        includes=[SystemPrompt],
+    )
+    ctx.phase("assessment").configure(
+        instructions="Assessment instructions",
+        includes=[SystemPrompt],
+    )
+
+    # Render without specifying phase - should use current phase ("intake")
+    rendered = ctx.render(format="text")
+    assert "Intake instructions" in rendered
+    assert "Assessment instructions" not in rendered
+
+    # Advance phase
+    ctx.phase("intake").configure(transitions_to=["assessment"])
+    ctx.advance_phase("assessment")
+
+    # Render again without specifying phase - should use new current phase
+    rendered = ctx.render(format="text")
+    assert "Assessment instructions" in rendered
+    assert "Intake instructions" not in rendered
+
+
+def test_context_render_explicit_phase_overrides():
+    """Test that explicit phase parameter overrides current phase."""
+
+    class TestPhases(str, Enum):
+        INTAKE = "intake"
+        ASSESSMENT = "assessment"
+
+    state = State(current_phase="intake", phases=TestPhases)
+    ctx = Context(state=state)
+
+    ctx.phase("intake").configure(instructions="Intake instructions")
+    ctx.phase("assessment").configure(instructions="Assessment instructions")
+
+    # Current phase is "intake", but explicitly render "assessment"
+    rendered = ctx.render(phase="assessment", format="text")
+    assert "Assessment instructions" in rendered
+    assert "Intake instructions" not in rendered
+
+    # Current phase should still be "intake"
+    assert ctx.current_phase() == "intake"
+
+
+def test_context_token_count_respects_current_phase():
+    """Test that token_count() respects current phase."""
+
+    class TestPhases(str, Enum):
+        SMALL = "small"
+        LARGE = "large"
+
+    state = State(current_phase="small", phases=TestPhases)
+    ctx = Context(state=state)
+
+    ctx.add(SystemPrompt, "System")
+    ctx.add("extra", "This is a lot of extra content that adds many tokens")
+
+    # Small phase - only system
+    ctx.phase("small").configure(includes=[SystemPrompt])
+
+    # Large phase - system + extra
+    ctx.phase("large").configure(includes=[SystemPrompt, "extra"])
+
+    # Token count for current phase (small)
+    small_count = ctx.token_count()
+
+    # Token count for large phase explicitly
+    large_count = ctx.token_count(phase="large")
+
+    assert large_count > small_count
+
+
+def test_render_error_if_phase_not_configured():
+    """Test that render errors if state has phase but Context doesn't have it configured."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        COMPLETE = "complete"
+
+    state = State(current_phase="initial", phases=TestPhases)
+    ctx = Context(state=state)
+
+    # Don't configure the "initial" phase
+    # Try to render - should error immediately
+    with pytest.raises(InvalidPhaseError) as exc_info:
+        ctx.render()
+
+    assert "Phase 'initial' is not registered in Context" in str(exc_info.value)
+    assert "ctx.phase('initial').configure" in str(exc_info.value)
+
+
+def test_transitions_to_accepts_enums():
+    """Test that transitions_to accepts Enum values and converts them to strings."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        PROCESSING = "processing"
+        COMPLETE = "complete"
+
+    state = State(current_phase=TestPhases.INITIAL, phases=TestPhases)
+    ctx = Context(state=state)
+
+    # Configure with Enum values in transitions_to
+    ctx.phase(TestPhases.INITIAL).configure(
+        instructions="Initial phase",
+        transitions_to=[TestPhases.PROCESSING, TestPhases.COMPLETE],  # Enums!
+    )
+
+    # Should work - Enums converted to strings internally
+    ctx.advance_phase(TestPhases.PROCESSING)
+    assert state.phase() == "processing"
+
+    # Reset to test second transition
+    state.set_phase(TestPhases.INITIAL)
+    ctx.advance_phase(TestPhases.COMPLETE)
+    assert state.phase() == "complete"
+
+
+def test_transitions_to_mixed_enums_and_strings():
+    """Test that transitions_to accepts mix of Enums and strings."""
+
+    class TestPhases(str, Enum):
+        INITIAL = "initial"
+        PROCESSING = "processing"
+        COMPLETE = "complete"
+
+    state = State(current_phase=TestPhases.INITIAL, phases=TestPhases)
+    ctx = Context(state=state)
+
+    # Mix of Enum and string
+    ctx.phase(TestPhases.INITIAL).configure(
+        transitions_to=[TestPhases.PROCESSING, "complete"],  # Mixed!
+    )
+
+    # Both should work
+    ctx.advance_phase(TestPhases.PROCESSING)
+    assert state.phase() == "processing"
+
+    state.set_phase(TestPhases.INITIAL)
+    ctx.advance_phase("complete")
+    assert state.phase() == "complete"
+
+
+def test_full_workflow_with_current_phase_api():
+    """Test complete workflow using new current_phase API (v0.1.0a3)."""
+
+    class TriagePhases(str, Enum):
+        INTAKE = "intake"
+        ASSESSMENT = "assessment"
+        COMPLETE = "complete"
+
+    # NEW API: Use current_phase parameter
+    state = State(
+        initial={"patient": {"name": "Alice"}},
+        current_phase=TriagePhases.INTAKE,  # Much cleaner!
+        phases=TriagePhases,
+    )
+
+    ctx = Context(state=state)
+    ctx.add(SystemPrompt, "You are a triage assistant")
+
+    # Configure phases with Enum transitions (NEW!)
+    ctx.phase("intake").configure(
+        instructions="Gather patient information",
+        includes=[SystemPrompt, ChatMessages],
+        transitions_to=[TriagePhases.ASSESSMENT],  # Type-safe!
+    )
+
+    ctx.phase("assessment").configure(
+        instructions="Assess patient condition",
+        includes=[SystemPrompt, ChatMessages],
+        transitions_to=[TriagePhases.COMPLETE],  # Type-safe!
+    )
+
+    # Add message and render - NO NEED to specify phase!
+    ctx.add_user_message("I have a headache")
+    rendered = ctx.render()  # Automatically uses current phase
+    assert "Gather patient information" in rendered
+    assert "headache" in rendered
+
+    # Advance phase
+    ctx.advance_phase(TriagePhases.ASSESSMENT)
+    assert ctx.current_phase() == "assessment"
+
+    # Render again - automatically uses new current phase
+    ctx.add_user_message("It's been hurting for 2 days")
+    rendered = ctx.render()  # No phase needed!
+    assert "Assess patient condition" in rendered
+
+    # Token count also respects current phase
+    token_count = ctx.token_count()  # Uses current phase
+    assert token_count > 0

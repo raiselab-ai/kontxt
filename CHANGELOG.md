@@ -5,6 +5,63 @@ All notable changes to kontxt will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0a3] - 2025-01-12
+
+### Added
+- **State**: `current_phase` parameter for cleaner initialization
+  - `State(current_phase="intake", phases=Phases)` instead of nested dict
+  - Single source of truth for workflow phase
+  - Supports both string and Enum values
+- **Context**: `current_phase()` method to get phase from state
+  - Returns current phase name or None if no state configured
+  - Provides public API to check workflow state
+
+### Changed
+- **BREAKING**: `Context.render()` now automatically uses `state.phase()` when no phase specified
+  - Old: `ctx.render(phase=state.phase())` required explicit phase
+  - New: `ctx.render()` automatically uses current phase from state
+  - Explicit phase parameter still supported to override
+- **Context.token_count()** now respects current phase
+  - `ctx.token_count()` uses current phase from state
+  - `ctx.token_count(phase="other")` can override for specific phase
+- **Context**: Enhanced phase validation
+  - Errors immediately if state has phase but Context doesn't have it configured
+  - Clear error messages with configuration hints
+
+### Improved
+- **Phase API**: Full Enum support for type-safe workflows
+  - `transitions_to` parameter now accepts Enum values: `transitions_to=[Phases.ASSESSMENT]`
+  - Enums are converted to strings internally for storage
+  - Mixed Enum and string values supported: `transitions_to=[Phases.NEXT, "other"]`
+  - Better IDE autocomplete and compile-time type checking
+  - Fully backward compatible - strings still work everywhere
+
+### Fixed
+- State and Context phase synchronization is now automatic
+  - No more manual phase passing between state and render
+  - Workflow phase is single source of truth
+
+### Developer Experience
+- 30 tests passing (10 new tests for v0.1.0a3 features)
+- Updated `multi_phase_workflow.py` example to demonstrate new API
+- Cleaner, more intuitive workflow API with full Enum support
+
+### Migration Guide
+```python
+# OLD API (v0.1.0a1-a2)
+state = State(
+    initial={"session": {"phase": "intake"}},
+    phases=Phases
+)
+ctx = Context(state=state)
+ctx.render(phase=state.phase())  # Must specify phase
+
+# NEW API (v0.1.0a3)
+state = State(current_phase="intake", phases=Phases)  # Cleaner!
+ctx = Context(state=state)
+ctx.render()  # Automatically uses current phase!
+```
+
 ## [0.1.0a2] - 2025-01-12
 
 ### Fixed
@@ -96,6 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a3]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a3
 [0.1.0a2]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a1
 

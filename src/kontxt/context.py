@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Sequence
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Sequence, Union
 
 from pydantic import BaseModel
 
@@ -173,13 +174,38 @@ class Context:
     # ------------------------------------------------------------------
     # Phases
     # ------------------------------------------------------------------
-    def phase(self, name: str) -> PhaseBuilder:
-        """Return a phase builder, creating the phase if necessary."""
-        if name not in self._phases:
-            self._phases[name] = PhaseConfig(name=name)
-        return PhaseBuilder(self._phases[name])
+    def current_phase(self) -> str | None:
+        """Get the current phase from state.
 
-    def advance_phase(self, next_phase: str) -> "Context":
+        Returns:
+            Current phase name, or None if no state is configured
+
+        Examples:
+            >>> ctx = Context(state=state)
+            >>> ctx.current_phase()  # Returns "intake" if that's current phase
+            'intake'
+        """
+        if self._state is None:
+            return None
+        return self._state.phase()
+
+    def phase(self, name: Union[str, Enum]) -> PhaseBuilder:
+        """Return a phase builder, creating the phase if necessary.
+
+        Args:
+            name: Phase name (string or Enum member)
+
+        Examples:
+            >>> ctx.phase("intake").configure(...)
+            >>> ctx.phase(Phases.INTAKE).configure(...)  # Also works with Enum
+        """
+        # Convert enum to string if needed
+        phase_name = name.value if isinstance(name, Enum) else name
+        if phase_name not in self._phases:
+            self._phases[phase_name] = PhaseConfig(name=phase_name)
+        return PhaseBuilder(self._phases[phase_name])
+
+    def advance_phase(self, next_phase: Union[str, Enum]) -> "Context":
         """Advance to the next phase with transition validation.
 
         This method validates that the transition is allowed according to the
@@ -215,7 +241,6 @@ class Context:
             raise InvalidPhaseError("Cannot advance phase: current phase is None")
 
         # Convert enum to string if needed
-        from enum import Enum
         next_phase_str = next_phase.value if isinstance(next_phase, Enum) else next_phase
 
         # Check if current phase is registered
@@ -260,7 +285,7 @@ class Context:
         """Render the context into the requested format.
 
         Args:
-            phase: Named phase to render (uses phase config)
+            phase: Named phase to render. If None, uses current phase from state (if available)
             format: Output format (Format.TEXT, Format.OPENAI, Format.ANTHROPIC, Format.GEMINI)
             max_tokens: Override budget for this render
             memory: Memory instance to pull from (overrides default)
@@ -274,9 +299,16 @@ class Context:
             >>> payload = ctx.render(format=Format.GEMINI)
             >>> # Or use string (still supported)
             >>> payload = ctx.render(format="gemini")
+            >>> # With state, automatically uses current phase
+            >>> ctx = Context(state=state)
+            >>> ctx.render()  # Uses state.phase() automatically
         """
         # Use provided memory, fall back to default, or None
         active_memory = memory if memory is not None else self._memory
+
+        # If no phase specified, try to get from state
+        if phase is None:
+            phase = self.current_phase()
 
         sections = self._select_sections(phase, memory=active_memory)
         evaluated = self._evaluate_sections(sections)
@@ -298,9 +330,27 @@ class Context:
             return render_gemini(materialized, generation_config=generation_config)
         raise ValueError(f"Unsupported render format '{format_str}'.")
 
-    def token_count(self) -> int:
-        """Return the approximate token count for currently registered sections."""
-        evaluated = self._evaluate_sections(self._sections)
+    def token_count(self, *, phase: str | None = None) -> int:
+        """Return the approximate token count for sections.
+
+        Args:
+            phase: Phase to count tokens for. If None, uses current phase from state (if available).
+                   If no phase and no state, counts all sections.
+
+        Returns:
+            Approximate token count
+
+        Examples:
+            >>> ctx.token_count()  # Uses current phase if state is configured
+            >>> ctx.token_count(phase="intake")  # Count specific phase
+        """
+        # If no phase specified, try to get from state
+        if phase is None:
+            phase = self.current_phase()
+
+        # Select sections based on phase (or all if no phase)
+        sections = self._select_sections(phase, memory=self._memory)
+        evaluated = self._evaluate_sections(sections)
         budget_manager = BudgetManager(self._token_counter)
         materialized: MutableMapping[str, List[Any]] = budget_manager.enforce(
             evaluated,
@@ -317,15 +367,23 @@ class Context:
         phase: str | None,
         memory: "Optional[Memory]" = None,
     ) -> "OrderedDict[str, List[SectionItem]]":
-        """Select sections based on phase config and pull from memory."""
+        """Select sections based on phase config and pull from memory.
+
+        Raises:
+            InvalidPhaseError: If phase is not None and not registered in Context
+        """
         if phase is None:
             return OrderedDict(self._sections)
 
-        try:
-            config = self._phases[phase]
-        except KeyError as exc:
-            raise InvalidPhaseError(f"Phase '{phase}' is not registered.") from exc
+        # Validate phase is registered in Context
+        if phase not in self._phases:
+            raise InvalidPhaseError(
+                f"Phase '{phase}' is not registered in Context. "
+                f"Configure it with ctx.phase('{phase}').configure(...)"
+            )
 
+        # Get phase config
+        config = self._phases[phase]
         ordered: "OrderedDict[str, List[SectionItem]]" = OrderedDict()
 
         # Add phase-specific sections
