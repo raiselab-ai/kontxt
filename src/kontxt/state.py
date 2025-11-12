@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import abc
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, Mapping, MutableMapping, Sequence
@@ -41,7 +40,7 @@ class State:
         phase_path: Sequence[str] = ("session", "phase"),
         phases: type[Enum] | None = None,
     ) -> None:
-        self._data: Dict[str, Any] = deepcopy(initial) if initial else {}
+        self._data: Dict[str, Any] = deepcopy(dict(initial)) if initial else {}
         self._phase_path = tuple(phase_path)
         self._phases = phases
 

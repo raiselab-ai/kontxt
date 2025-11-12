@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kontxt import Cache, Memory, Scratchpad
+from kontxt import Cache, Memory
 
 
 def test_memory_store_and_retrieve(memory: Memory) -> None:

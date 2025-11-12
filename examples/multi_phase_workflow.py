@@ -79,7 +79,7 @@ def main():
 
     # Add user message using helper
     ctx.add_user_message("I've been experiencing headaches for the past week.")
-    print(f"User: I've been experiencing headaches for the past week.")
+    print("User: I've been experiencing headaches for the past week.")
     print()
 
     # Render for current phase
@@ -109,7 +109,7 @@ def main():
 
     # Continue conversation
     ctx.add_user_message("It's a throbbing pain, usually on the right side.")
-    print(f"User: It's a throbbing pain, usually on the right side.")
+    print("User: It's a throbbing pain, usually on the right side.")
     print()
 
     # Render assessment phase
@@ -120,7 +120,7 @@ def main():
 
     # Simulate assessment completion
     ctx.add_response("Based on your symptoms, this appears to be a migraine.")
-    print(f"Assistant: Based on your symptoms, this appears to be a migraine.")
+    print("Assistant: Based on your symptoms, this appears to be a migraine.")
     print()
 
     # Complete workflow
@@ -150,13 +150,13 @@ def main():
     )
 
     print(f"Current phase: {state2.phase()}")
-    print(f"Allowed transitions: ['assessment']")
+    print("Allowed transitions: ['assessment']")
     print()
 
     # Try invalid transition (would raise InvalidPhaseTransitionError)
     print("❌ Trying to transition directly to 'complete' (not allowed)...")
     print("   This would raise: InvalidPhaseTransitionError")
-    print(f"   'Cannot transition from intake to complete'")
+    print("   'Cannot transition from intake to complete'")
     print()
 
     print("✅ Transitioning to 'assessment' (allowed)...")

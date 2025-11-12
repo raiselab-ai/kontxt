@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Sequence
 
 from pydantic import BaseModel
 
@@ -302,7 +302,7 @@ class Context:
         """Return the approximate token count for currently registered sections."""
         evaluated = self._evaluate_sections(self._sections)
         budget_manager = BudgetManager(self._token_counter)
-        materialized = budget_manager.enforce(
+        materialized: MutableMapping[str, List[Any]] = budget_manager.enforce(
             evaluated,
             max_tokens=None,
             priority=None,
@@ -326,7 +326,7 @@ class Context:
         except KeyError as exc:
             raise InvalidPhaseError(f"Phase '{phase}' is not registered.") from exc
 
-        ordered = OrderedDict()
+        ordered: "OrderedDict[str, List[SectionItem]]" = OrderedDict()
 
         # Add phase-specific sections
         if config.system is not None:
@@ -347,9 +347,9 @@ class Context:
 
                 # Apply max_history if this is messages section
                 if section_name == "messages" and config.max_history:
-                    section_data = section_data[-config.max_history :]
-
-                ordered[section_name] = section_data
+                    ordered[section_name] = section_data[-config.max_history :]
+                else:
+                    ordered[section_name] = section_data
 
         # Pull from memory if available
         if memory is not None and config.memory_includes:
@@ -393,7 +393,7 @@ class Context:
             strict = self._budget.strict
 
         manager = BudgetManager(self._token_counter)
-        materialized = manager.enforce(sections, max_tokens=limit, priority=priority)
+        materialized: MutableMapping[str, List[Any]] = manager.enforce(sections, max_tokens=limit, priority=priority)
 
         if limit is not None and strict:
             total_tokens = sum(self._token_counter.estimate(items) for items in materialized.values())
