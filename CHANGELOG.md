@@ -5,6 +5,26 @@ All notable changes to kontxt will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0a2] - 2025-01-12
+
+### Fixed
+- **Type checking**: Fixed all mypy type errors across the codebase
+  - Fixed `deepcopy` type compatibility in `State.__init__()`
+  - Fixed return type annotations in `BudgetManager.enforce()`
+  - Fixed type assignments in `Context` methods
+- **Linting**: Auto-fixed 18 ruff linting errors (unused imports, f-strings without placeholders)
+- **CI Pipeline**: Added missing `twine` dependency and fixed build job configuration
+
+### Changed
+- **CI/CD**: Added `uv sync --all-extras` to build job to ensure dev dependencies are installed
+- **Dependencies**: Added `twine>=5.0` to dev dependencies for package metadata validation
+
+### Internal
+- All 43 tests passing
+- Clean mypy type checking (0 errors)
+- Clean ruff linting (0 errors)
+- Package builds successfully and passes twine validation
+
 ## [0.1.0a1] - 2025-01-10
 
 ### Added (Alpha Release)
@@ -76,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a2]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a1
 
 
