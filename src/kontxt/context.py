@@ -158,6 +158,54 @@ class Context:
         """
         return self.add("messages", {"role": role, "content": text})
 
+    def get_messages(self, role: str | None = None) -> List[Dict[str, Any]]:
+        """Get messages from conversation history, optionally filtered by role.
+
+        This is a convenience helper for retrieving messages. If role is specified,
+        only returns messages with that role.
+
+        Args:
+            role: Optional role to filter by ("user", "assistant", "system", etc.)
+                  If None, returns all messages.
+
+        Returns:
+            List of message dicts, or empty list if no messages exist.
+            Only returns properly formatted message dicts (with "role" and "content" keys).
+
+        Examples:
+            >>> ctx.add_user_message("Hello")
+            >>> ctx.add_response("Hi there")
+            >>> ctx.add_user_message("How are you?")
+            >>>
+            >>> # Get all messages
+            >>> ctx.get_messages()
+            [{"role": "user", "content": "Hello"},
+             {"role": "assistant", "content": "Hi there"},
+             {"role": "user", "content": "How are you?"}]
+            >>>
+            >>> # Get only user messages
+            >>> ctx.get_messages(role="user")
+            [{"role": "user", "content": "Hello"},
+             {"role": "user", "content": "How are you?"}]
+            >>>
+            >>> # Get only assistant messages
+            >>> ctx.get_messages(role="assistant")
+            [{"role": "assistant", "content": "Hi there"}]
+        """
+        messages = self._sections.get("messages", [])
+
+        # Filter to only properly formatted message dicts
+        message_dicts = [
+            msg for msg in messages
+            if isinstance(msg, dict) and "role" in msg and "content" in msg
+        ]
+
+        # Apply role filter if specified
+        if role is not None:
+            return [msg for msg in message_dicts if msg["role"] == role]
+
+        return message_dicts
+
     # ------------------------------------------------------------------
     # Budget management
     # ------------------------------------------------------------------

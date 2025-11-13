@@ -5,6 +5,21 @@ All notable changes to kontxt will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Context**: `get_messages()` method to retrieve conversation history with optional role filtering
+  - `ctx.get_messages()` - Get all messages
+  - `ctx.get_messages(role="user")` - Get only user messages
+  - `ctx.get_messages(role="assistant")` - Get only assistant messages
+  - `ctx.get_messages(role="system")` - Get only system messages
+  - Returns properly formatted message dicts with role and content
+  - Useful for analytics, filtering, and conversation analysis
+
+### Developer Experience
+- 83 tests passing (9 new tests for get_messages)
+- New example: `get_messages_demo.py` - Shows filtering and analytics use cases
+
 ## [0.1.0a3] - 2025-01-12
 
 ### Added
