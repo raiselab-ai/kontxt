@@ -2,63 +2,22 @@
 
 This module defines the Provider protocol that ChatSession uses to interact
 with different LLM providers (Gemini, OpenAI, Anthropic, etc.).
+
+Note: Response, StreamChunk, and ToolCall are now defined in providers/base.py
+and re-exported from providers/__init__.py for convenience.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, Iterator, Protocol
 
 if TYPE_CHECKING:
     from .types import Format
 
+# Import and re-export base types
+from .providers import Response, StreamChunk, ToolCall
 
-@dataclass
-class Response:
-    """Standardized response from an LLM provider."""
-
-    text: str
-    """The generated text response."""
-
-    raw: Any
-    """The raw response object from the provider."""
-
-    tool_calls: list[ToolCall] | None = None
-    """Any tool/function calls requested by the model."""
-
-    finish_reason: str | None = None
-    """Reason the generation stopped (e.g., 'stop', 'length', 'tool_calls')."""
-
-
-@dataclass
-class ToolCall:
-    """Represents a tool/function call from the model."""
-
-    name: str
-    """Name of the tool/function to call."""
-
-    arguments: Dict[str, Any]
-    """Arguments to pass to the tool/function."""
-
-    id: str | None = None
-    """Optional tool call ID (used by some providers)."""
-
-
-@dataclass
-class StreamChunk:
-    """A chunk from a streaming response."""
-
-    text: str
-    """Text content in this chunk."""
-
-    tool_calls: list[ToolCall] | None = None
-    """Tool calls in this chunk (if any)."""
-
-    finish_reason: str | None = None
-    """Finish reason if this is the final chunk."""
-
-    raw: Any = None
-    """Raw chunk from the provider."""
+__all__ = ['Response', 'StreamChunk', 'ToolCall', 'Provider']
 
 
 class Provider(Protocol):

@@ -77,7 +77,7 @@ def main():
     user_msgs = ctx.get_messages(role="user")
     assistant_msgs = ctx.get_messages(role="assistant")
 
-    print(f"📊 Conversation Statistics:")
+    print("📊 Conversation Statistics:")
     print(f"  - Total turns: {len(all_msgs)}")
     print(f"  - User messages: {len(user_msgs)}")
     print(f"  - Assistant messages: {len(assistant_msgs)}")
@@ -87,7 +87,7 @@ def main():
     user_avg_len = sum(len(msg["content"]) for msg in user_msgs) / len(user_msgs)
     assistant_avg_len = sum(len(msg["content"]) for msg in assistant_msgs) / len(assistant_msgs)
 
-    print(f"📏 Average Message Lengths:")
+    print("📏 Average Message Lengths:")
     print(f"  - User: {user_avg_len:.1f} chars")
     print(f"  - Assistant: {assistant_avg_len:.1f} chars")
     print()

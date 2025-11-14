@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Iterator, Optional
 
-from ..providers import Response, StreamChunk, ToolCall
 from ..types import Format
+from .base import Response, StreamChunk, ToolCall
 
 if TYPE_CHECKING:
     from google import genai
