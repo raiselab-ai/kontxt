@@ -1,6 +1,6 @@
 [project]
 name = "kontxt"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Context orchestration primitives for LLM applications."
 readme = "README.md"
 authors = [
@@ -35,6 +35,9 @@ dev = [
 docs = [
     "mkdocs>=1.5",
     "mkdocs-material>=9.5"
+]
+gemini = [
+    "google-genai>=1.50.0"
 ]
 
 [project.urls]

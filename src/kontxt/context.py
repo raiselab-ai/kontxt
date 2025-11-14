@@ -158,6 +158,54 @@ class Context:
         """
         return self.add("messages", {"role": role, "content": text})
 
+    def get_messages(self, role: str | None = None) -> List[Dict[str, Any]]:
+        """Get messages from conversation history, optionally filtered by role.
+
+        This is a convenience helper for retrieving messages. If role is specified,
+        only returns messages with that role.
+
+        Args:
+            role: Optional role to filter by ("user", "assistant", "system", etc.)
+                  If None, returns all messages.
+
+        Returns:
+            List of message dicts, or empty list if no messages exist.
+            Only returns properly formatted message dicts (with "role" and "content" keys).
+
+        Examples:
+            >>> ctx.add_user_message("Hello")
+            >>> ctx.add_response("Hi there")
+            >>> ctx.add_user_message("How are you?")
+            >>>
+            >>> # Get all messages
+            >>> ctx.get_messages()
+            [{"role": "user", "content": "Hello"},
+             {"role": "assistant", "content": "Hi there"},
+             {"role": "user", "content": "How are you?"}]
+            >>>
+            >>> # Get only user messages
+            >>> ctx.get_messages(role="user")
+            [{"role": "user", "content": "Hello"},
+             {"role": "user", "content": "How are you?"}]
+            >>>
+            >>> # Get only assistant messages
+            >>> ctx.get_messages(role="assistant")
+            [{"role": "assistant", "content": "Hi there"}]
+        """
+        messages = self._sections.get("messages", [])
+
+        # Filter to only properly formatted message dicts
+        message_dicts = [
+            msg for msg in messages
+            if isinstance(msg, dict) and "role" in msg and "content" in msg
+        ]
+
+        # Apply role filter if specified
+        if role is not None:
+            return [msg for msg in message_dicts if msg["role"] == role]
+
+        return message_dicts
+
     # ------------------------------------------------------------------
     # Budget management
     # ------------------------------------------------------------------
@@ -169,6 +217,56 @@ class Context:
         strict: bool = False,
     ) -> "Context":
         self._budget = BudgetConfig(max_tokens=max_tokens, priority=priority, strict=strict)
+        return self
+
+    # ------------------------------------------------------------------
+    # State management
+    # ------------------------------------------------------------------
+    def get_state(self, key: str, default: Any | None = None) -> Any:
+        """Get a value from state using dot notation.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id")
+            default: Value to return if key not found
+
+        Returns:
+            The value at the specified path, or default if not found
+
+        Raises:
+            ValueError: If no state is configured
+
+        Examples:
+            >>> ctx = Context(state=state)
+            >>> ctx.get_state("session.id")
+            '123'
+            >>> ctx.get_state("missing.key", "default")
+            'default'
+        """
+        if self._state is None:
+            raise ValueError("Cannot get state: no State configured in Context")
+        return self._state.get(key, default)
+
+    def set_state(self, key: str, value: Any) -> "Context":
+        """Set a value in state using dot notation.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id")
+            value: Value to set
+
+        Returns:
+            Self for method chaining
+
+        Raises:
+            ValueError: If no state is configured
+
+        Examples:
+            >>> ctx = Context(state=state)
+            >>> ctx.set_state("session.id", "456")
+            >>> ctx.set_state("user.name", "Alice")
+        """
+        if self._state is None:
+            raise ValueError("Cannot set state: no State configured in Context")
+        self._state.set(key, value)
         return self
 
     # ------------------------------------------------------------------

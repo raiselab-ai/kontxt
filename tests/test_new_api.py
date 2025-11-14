@@ -423,7 +423,7 @@ def test_state_with_current_phase_parameter():
         phases=TestPhases,
     )
     assert state.phase() == "initial"
-    assert state.get_path(["user_id"]) == "123"
+    assert state.get("user_id") == "123"
 
 
 def test_state_current_phase_validation():

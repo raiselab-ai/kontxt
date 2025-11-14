@@ -5,6 +5,120 @@ All notable changes to kontxt will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.0a4] - 2025-01-14
+
+### Added
+
+#### 🚀 Major DX Improvements: ChatSession & Provider Integration
+
+**ChatSession** - Eliminates boilerplate for multi-turn conversations:
+- `ChatSession(ctx, provider)` - Automatic message tracking and context sync
+- `session.send(message)` - Send message, get response, auto-updates context
+- `session.stream(message)` - Streaming responses with automatic context updates
+- `session.is_phase_complete()` - Convenience helper for phase-based workflows
+- `AsyncChatSession` - Full async/await support for high-performance applications
+
+**GeminiProvider** - Simplified Google Gemini integration:
+- **Installation**: `pip install 'kontxt[gemini]'` - Optional dependency
+- **No manual client setup**: `GeminiProvider()` uses `GEMINI_API_KEY` env var
+- **Vertex AI support**: `GeminiProvider(vertexai=True, project="...", location="...")`
+- **Context managers**: `with GeminiProvider() as provider:` - Auto-cleanup
+- **AsyncGeminiProvider** - Async version with `client.aio` support
+- Standardized `Response` and `StreamChunk` objects across providers
+- Tool calling support via `response.tool_calls`
+
+**Context Improvements**:
+- `get_messages()` method to retrieve conversation history with optional role filtering
+  - `ctx.get_messages()` - Get all messages
+  - `ctx.get_messages(role="user")` - Get only user messages
+  - `ctx.get_messages(role="assistant")` - Get only assistant messages
+  - Returns properly formatted message dicts with role and content
+  - Useful for analytics, filtering, and conversation analysis
+- `ctx.get_state(key, default)` - Read from state via context
+- `ctx.set_state(key, value)` - Write to state via context (chainable)
+
+**State Improvements** - Better developer experience:
+- `state.get(key, default)` - Dot notation for reading (e.g., `state.get("session.id")`)
+- `state.set(key, value)` - Dot notation for writing (e.g., `state.set("user.name", "Alice")`)
+- `print(state)` - Pretty-print state as formatted JSON via `__str__()`
+- `repr(state)` - Detailed debug representation
+- **BREAKING**: Removed `get_path()` and `set_path()` - use `get()` and `set()` instead
+
+### Changed
+
+**BREAKING CHANGES**:
+- **State API**: `get_path(["session", "id"])` → `get("session.id")`
+- **State API**: `set_path(["session", "id"], value)` → `set("session.id", value)`
+
+### Before (0.1.0a3)
+```python
+# 30+ lines of boilerplate
+while ctx.current_phase() != Phase.COMPLETED:
+    user_input = input("You: ")
+    ctx.add_user_message(user_input)
+    payload = ctx.render(format=Format.GEMINI)
+    response_stream = client.models.generate_content_stream(...)
+
+    model_response_text = ""
+    for chunk in response_stream:
+        # ... 15 more lines of chunk parsing
+
+    if model_response_text:
+        ctx.add_response(model_response_text)
+```
+
+### After (0.1.0a4)
+```python
+# 5 lines, zero boilerplate
+provider = GeminiProvider()
+session = ChatSession(ctx, provider)
+
+while not session.is_phase_complete():
+    response = session.send(input("You: "))
+    print(response.text)
+```
+
+### Performance
+- **Async support**: Full async/await for I/O-bound workloads
+- **Streaming**: Built-in streaming support with automatic context sync
+- **Resource management**: Context managers ensure proper cleanup
+
+### Developer Experience
+- New example: `chat_session_demo.py` - Simple ChatSession usage
+- New example: `async_chat_demo.py` - Async ChatSession with streaming
+- New example: `get_messages_demo.py` - Shows filtering and analytics use cases
+- Installation simplified: `pip install 'kontxt[gemini]'` for Gemini support
+- Better error messages when optional dependencies missing
+
+### Migration Guide (0.1.0a3 → 0.1.0a4)
+
+**State API changes:**
+```python
+# OLD
+state.get_path(["session", "id"])
+state.set_path(["user", "name"], "Alice")
+
+# NEW
+state.get("session.id")
+state.set("user.name", "Alice")
+```
+
+**Multi-turn conversations:**
+```python
+# OLD - Manual management
+ctx.add_user_message(user_input)
+payload = ctx.render(format=Format.GEMINI)
+response = client.models.generate_content(...)
+ctx.add_response(response.text)
+
+# NEW - Automatic with ChatSession
+provider = GeminiProvider()
+session = ChatSession(ctx, provider)
+response = session.send(user_input)
+```
+
 ## [0.1.0a3] - 2025-01-12
 
 ### Added
@@ -153,6 +267,7 @@ ctx.render()  # Automatically uses current phase!
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a4]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a4
 [0.1.0a3]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a3
 [0.1.0a2]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a1
