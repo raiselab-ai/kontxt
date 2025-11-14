@@ -8,7 +8,7 @@ from ..types import Format
 from .base import Response, StreamChunk, ToolCall
 
 if TYPE_CHECKING:
-    from google import genai
+    from google import genai  # type: ignore[import-not-found]
 
 
 class GeminiProvider:
@@ -78,7 +78,7 @@ class GeminiProvider:
         """
         # Lazy import to avoid hard dependency
         try:
-            from google import genai
+            from google import genai  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "google-genai is required to use GeminiProvider. "
@@ -126,7 +126,7 @@ class GeminiProvider:
         response = self.client.models.generate_content(
             model=self.model,
             contents=payload.get("contents", []),
-            config=config if config else None,
+            config=config if config else None,  # type: ignore[arg-type]
         )
 
         # Extract text and tool calls from response
@@ -150,7 +150,7 @@ class GeminiProvider:
         response_stream = self.client.models.generate_content_stream(
             model=self.model,
             contents=payload.get("contents", []),
-            config=config if config else None,
+            config=config if config else None,  # type: ignore[arg-type]
         )
 
         # Stream chunks
@@ -310,7 +310,7 @@ class AsyncGeminiProvider:
         """
         # Lazy import to avoid hard dependency
         try:
-            from google import genai
+            from google import genai  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "google-genai is required to use AsyncGeminiProvider. "
@@ -334,7 +334,7 @@ class AsyncGeminiProvider:
             self.client = base_client.aio
         else:
             # If client provided, get its async version
-            self.client = client.aio if hasattr(client, 'aio') else client
+            self.client = client.aio if hasattr(client, 'aio') else client  # type: ignore[assignment]
 
         self.model = model
         self.config = config or {}
@@ -362,7 +362,7 @@ class AsyncGeminiProvider:
         response = await self.client.models.generate_content(
             model=self.model,
             contents=payload.get("contents", []),
-            config=config if config else None,
+            config=config if config else None,  # type: ignore[arg-type]
         )
 
         # Extract text and tool calls from response
@@ -386,7 +386,7 @@ class AsyncGeminiProvider:
         response_stream = await self.client.models.generate_content_stream(
             model=self.model,
             contents=payload.get("contents", []),
-            config=config if config else None,
+            config=config if config else None,  # type: ignore[arg-type]
         )
 
         # Stream chunks

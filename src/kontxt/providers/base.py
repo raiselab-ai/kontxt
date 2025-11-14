@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Protocol
+
+if TYPE_CHECKING:
+    from ..types import Format
 
 
 @dataclass
@@ -52,3 +55,38 @@ class StreamChunk:
 
     raw: Any = None
     """Raw chunk from the provider."""
+
+
+class Provider(Protocol):
+    """Protocol that all LLM providers must implement.
+
+    This defines the minimal interface that ChatSession needs to interact
+    with different LLM APIs.
+    """
+
+    @property
+    def format(self) -> "Format":
+        """The render format this provider expects (e.g., Format.GEMINI)."""
+        ...
+
+    def generate(self, payload: Dict[str, Any]) -> Response:
+        """Generate a response from the LLM.
+
+        Args:
+            payload: The rendered context payload from Context.render()
+
+        Returns:
+            A standardized Response object
+        """
+        ...
+
+    def stream(self, payload: Dict[str, Any]) -> Iterator[StreamChunk]:
+        """Generate a streaming response from the LLM.
+
+        Args:
+            payload: The rendered context payload from Context.render()
+
+        Yields:
+            StreamChunk objects as the response is generated
+        """
+        ...

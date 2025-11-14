@@ -216,7 +216,7 @@ class AsyncChatSession:
         payload = self.context.render(format=self.provider.format)
 
         # Call provider asynchronously
-        response = await self.provider.generate(payload)
+        response = await self.provider.generate(payload)  # type: ignore[misc]
 
         # Add assistant response to context
         if response.text:
@@ -254,7 +254,7 @@ class AsyncChatSession:
         complete_text = ""
 
         # Stream from provider asynchronously
-        async for chunk in self.provider.stream(payload):
+        async for chunk in self.provider.stream(payload):  # type: ignore[attr-defined]
             complete_text += chunk.text
             yield chunk
 
