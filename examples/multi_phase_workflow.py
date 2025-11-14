@@ -42,9 +42,9 @@ def main():
         phases=TriagePhases,  # Validates phase values
     )
 
-    print(f"Session ID: {state.get_path(['session', 'id'])}")
+    print(f"Session ID: {state.get('session.id')}")
     print(f"Initial Phase: {state.phase()}")
-    print(f"Patient: {state.get_path(['patient', 'name'])}, {state.get_path(['patient', 'age'])}")
+    print(f"Patient: {state.get('patient.name')}, {state.get('patient.age')}")
     print()
 
     # Initialize context with state

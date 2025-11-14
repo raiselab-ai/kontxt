@@ -220,6 +220,56 @@ class Context:
         return self
 
     # ------------------------------------------------------------------
+    # State management
+    # ------------------------------------------------------------------
+    def get_state(self, key: str, default: Any | None = None) -> Any:
+        """Get a value from state using dot notation.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id")
+            default: Value to return if key not found
+
+        Returns:
+            The value at the specified path, or default if not found
+
+        Raises:
+            ValueError: If no state is configured
+
+        Examples:
+            >>> ctx = Context(state=state)
+            >>> ctx.get_state("session.id")
+            '123'
+            >>> ctx.get_state("missing.key", "default")
+            'default'
+        """
+        if self._state is None:
+            raise ValueError("Cannot get state: no State configured in Context")
+        return self._state.get(key, default)
+
+    def set_state(self, key: str, value: Any) -> "Context":
+        """Set a value in state using dot notation.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id")
+            value: Value to set
+
+        Returns:
+            Self for method chaining
+
+        Raises:
+            ValueError: If no state is configured
+
+        Examples:
+            >>> ctx = Context(state=state)
+            >>> ctx.set_state("session.id", "456")
+            >>> ctx.set_state("user.name", "Alice")
+        """
+        if self._state is None:
+            raise ValueError("Cannot set state: no State configured in Context")
+        self._state.set(key, value)
+        return self
+
+    # ------------------------------------------------------------------
     # Phases
     # ------------------------------------------------------------------
     def current_phase(self) -> str | None:

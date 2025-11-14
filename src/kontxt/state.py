@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, Mapping, MutableMapping, Sequence
@@ -59,7 +60,7 @@ class State:
                 raise InvalidPhaseError(
                     f"Initial phase '{phase_str}' is not valid. Allowed phases: {allowed}"
                 )
-            self.set_path(self._phase_path, phase_str)
+            self.set(".".join(self._phase_path), phase_str)
         elif self._phases:
             # Validate existing phase in initial data if phases enum provided
             current = self.phase()
@@ -77,26 +78,55 @@ class State:
         """Return a deep copy of the underlying mapping."""
         return deepcopy(self._data)
 
-    def get_path(self, path: Sequence[str], default: Any | None = None) -> Any:
-        """Retrieve a value using a dot-path."""
+    def get(self, key: str, default: Any | None = None) -> Any:
+        """Retrieve a value using dot notation.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id" or "user.profile.name")
+            default: Value to return if key not found
+
+        Returns:
+            The value at the specified path, or default if not found
+
+        Examples:
+            >>> state = State(initial={"session": {"id": "123"}})
+            >>> state.get("session.id")
+            '123'
+            >>> state.get("session.missing", "default")
+            'default'
+        """
+        path = key.split(".")
         current: Any = self._data
-        for key in path:
-            if isinstance(current, MutableMapping) and key in current:
-                current = current[key]
+        for k in path:
+            if isinstance(current, MutableMapping) and k in current:
+                current = current[k]
             else:
                 return default
         return current
 
-    def set_path(self, path: Sequence[str], value: Any) -> None:
-        """Assign a value at the specified path, creating nodes as needed."""
-        if not path:
-            raise ValueError("path must contain at least one key")
+    def set(self, key: str, value: Any) -> None:
+        """Set a value using dot notation, creating nested dicts as needed.
+
+        Args:
+            key: Dot-separated path (e.g., "session.id" or "user.profile.name")
+            value: Value to set
+
+        Examples:
+            >>> state = State()
+            >>> state.set("session.id", "123")
+            >>> state.set("user.profile.name", "Alice")
+            >>> state.get("session.id")
+            '123'
+        """
+        path = key.split(".")
+        if not path or (len(path) == 1 and not path[0]):
+            raise ValueError("key must be a non-empty string")
 
         current = self._data
-        for key in path[:-1]:
-            if key not in current or not isinstance(current[key], MutableMapping):
-                current[key] = {}
-            current = current[key]
+        for k in path[:-1]:
+            if k not in current or not isinstance(current[k], MutableMapping):
+                current[k] = {}
+            current = current[k]
         current[path[-1]] = value
 
     # ------------------------------------------------------------------
@@ -110,7 +140,7 @@ class State:
 
     def phase(self) -> str | None:
         """Return the current phase name, if configured."""
-        phase_value = self.get_path(self._phase_path)
+        phase_value = self.get(".".join(self._phase_path))
         if phase_value is None:
             return None
         if not isinstance(phase_value, str):  # pragma: no cover - defensive
@@ -140,6 +170,26 @@ class State:
                 f"Cannot set phase to '{phase_str}'. Allowed phases: {allowed}"
             )
 
-        self.set_path(self._phase_path, phase_str)
+        self.set(".".join(self._phase_path), phase_str)
+
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the state.
+
+        Examples:
+            >>> state = State(initial={"user_id": "123"}, current_phase="initial")
+            >>> print(state)
+            {
+              "session": {
+                "phase": "initial"
+              },
+              "user_id": "123"
+            }
+        """
+        return json.dumps(self._data, indent=2, default=str)
+
+    def __repr__(self) -> str:
+        """Return a detailed string representation for debugging."""
+        phase_info = f", current_phase='{self.phase()}'" if self.phase() else ""
+        return f"State(data={self._data!r}{phase_info})"
 
 
