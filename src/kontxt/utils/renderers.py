@@ -86,12 +86,16 @@ def render_gemini(
     system_parts: list[str] = []
     contents: list[dict[str, Any]] = []
     instructions_parts: list[str] = []
+    tools_list: list[Any] = []
 
     for name, items in sections.items():
         if name == "system":
             system_parts.extend(str(ensure_serializable(item)) for item in items)
         elif name == "instructions":
             instructions_parts.extend(str(ensure_serializable(item)) for item in items)
+        elif name == "tools":
+            # Collect tools for config - they should be tool declarations, not strings
+            tools_list.extend(items)
         elif name == "messages":
             for item in items:
                 if isinstance(item, dict) and {"role", "content"} <= set(item):
@@ -139,8 +143,10 @@ def render_gemini(
         payload["system_instruction"] = system_instruction
 
     if generation_config:
-        payload["generation_config"] = generation_config
+        payload["generation_config"] = dict(generation_config)
+
+    if tools_list:
+        payload["tools"] = tools_list
 
     return payload
-
 

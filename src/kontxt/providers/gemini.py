@@ -70,23 +70,23 @@ class GeminiProvider:
             project: GCP project ID (required for Vertex AI if not in env).
             location: GCP location (required for Vertex AI if not in env).
             model: Model name to use (default: gemini-2.5-flash)
-            config: Optional generation config (temperature, topP, thinkingConfig, etc.)
-                   This will be passed to generate_content() as the config parameter
+            config: Optional default generation config (temperature, topP, thinkingConfig, etc.)
+                   Passed to `generation_config` unless overridden per request.
 
         Raises:
             ImportError: If google-genai is not installed
         """
-        # Lazy import to avoid hard dependency
-        try:
-            from google import genai  # type: ignore[import-not-found]
-        except ImportError as e:
-            raise ImportError(
-                "google-genai is required to use GeminiProvider. "
-                "Install it with: pip install 'kontxt[gemini]'"
-            ) from e
-
         # Initialize client if not provided
         if client is None:
+            # Lazy import to avoid hard dependency when injecting custom clients
+            try:
+                from google import genai  # type: ignore[import-not-found]
+            except ImportError as e:
+                raise ImportError(
+                    "google-genai is required to use GeminiProvider. "
+                    "Install it with: pip install 'kontxt[gemini]'"
+                ) from e
+
             if vertexai:
                 # Vertex AI client
                 self.client = genai.Client(
@@ -113,21 +113,15 @@ class GeminiProvider:
 
         Args:
             payload: Rendered context from ctx.render(format=Format.GEMINI)
+                    Expected keys: contents, system_instruction (optional), generation_config (optional)
 
         Returns:
             Standardized Response object
         """
-        # Merge config from payload (from ctx.render) and instance config
-        config = {**self.config}
-        if "config" in payload:
-            config.update(payload["config"])
+        kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini API
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=payload.get("contents", []),
-            config=config if config else None,  # type: ignore[arg-type]
-        )
+        response = self.client.models.generate_content(**kwargs)
 
         # Extract text and tool calls from response
         return self._parse_response(response)
@@ -137,21 +131,15 @@ class GeminiProvider:
 
         Args:
             payload: Rendered context from ctx.render(format=Format.GEMINI)
+                    Expected keys: contents, system_instruction (optional), generation_config (optional)
 
         Yields:
             StreamChunk objects as the response is generated
         """
-        # Merge config from payload and instance config
-        config = {**self.config}
-        if "config" in payload:
-            config.update(payload["config"])
+        kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini streaming API
-        response_stream = self.client.models.generate_content_stream(
-            model=self.model,
-            contents=payload.get("contents", []),
-            config=config if config else None,  # type: ignore[arg-type]
-        )
+        response_stream = self.client.models.generate_content_stream(**kwargs)
 
         # Stream chunks
         for chunk in response_stream:
@@ -249,6 +237,29 @@ class GeminiProvider:
         """Context manager exit - closes the client."""
         self.close()
 
+    def _build_request_kwargs(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Build keyword arguments for SDK calls."""
+        kwargs: Dict[str, Any] = {
+            "model": self.model,
+            "contents": payload.get("contents", []),
+        }
+
+        if "system_instruction" in payload:
+            kwargs["system_instruction"] = payload["system_instruction"]
+
+        generation_config = {**self.config}
+        payload_config = payload.get("generation_config")
+        if payload_config:
+            generation_config.update(payload_config)
+        if generation_config:
+            kwargs["generation_config"] = generation_config
+
+        tools = payload.get("tools")
+        if tools:
+            kwargs["tools"] = tools
+
+        return kwargs
+
 
 class AsyncGeminiProvider:
     """Async provider for Google's Gemini API (Developer API and Vertex AI).
@@ -303,22 +314,21 @@ class AsyncGeminiProvider:
             project: GCP project ID (required for Vertex AI if not in env).
             location: GCP location (required for Vertex AI if not in env).
             model: Model name to use (default: gemini-2.5-flash)
-            config: Optional generation config (temperature, topP, thinkingConfig, etc.)
+            config: Optional default generation config (temperature, topP, thinkingConfig, etc.)
 
         Raises:
             ImportError: If google-genai is not installed
         """
-        # Lazy import to avoid hard dependency
-        try:
-            from google import genai  # type: ignore[import-not-found]
-        except ImportError as e:
-            raise ImportError(
-                "google-genai is required to use AsyncGeminiProvider. "
-                "Install it with: pip install 'kontxt[gemini]'"
-            ) from e
-
-        # Initialize client if not provided
         if client is None:
+            # Lazy import to avoid hard dependency
+            try:
+                from google import genai  # type: ignore[import-not-found]
+            except ImportError as e:
+                raise ImportError(
+                    "google-genai is required to use AsyncGeminiProvider. "
+                    "Install it with: pip install 'kontxt[gemini]'"
+                ) from e
+
             if vertexai:
                 # Vertex AI client
                 base_client = genai.Client(
@@ -329,12 +339,11 @@ class AsyncGeminiProvider:
             else:
                 # Gemini Developer API client
                 base_client = genai.Client(api_key=api_key) if api_key else genai.Client()
-
-            # Get async client
-            self.client = base_client.aio
         else:
-            # If client provided, get its async version
-            self.client = client.aio if hasattr(client, 'aio') else client  # type: ignore[assignment]
+            base_client = client
+
+        # Get async client
+        self.client = base_client.aio if hasattr(base_client, "aio") else base_client
 
         self.model = model
         self.config = config or {}
@@ -349,21 +358,15 @@ class AsyncGeminiProvider:
 
         Args:
             payload: Rendered context from ctx.render(format=Format.GEMINI)
+                    Expected keys: contents, system_instruction (optional), generation_config (optional)
 
         Returns:
             Standardized Response object
         """
-        # Merge config from payload and instance config
-        config = {**self.config}
-        if "config" in payload:
-            config.update(payload["config"])
+        kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini API asynchronously
-        response = await self.client.models.generate_content(
-            model=self.model,
-            contents=payload.get("contents", []),
-            config=config if config else None,  # type: ignore[arg-type]
-        )
+        response = await self.client.models.generate_content(**kwargs)
 
         # Extract text and tool calls from response
         return self._parse_response(response)
@@ -373,21 +376,15 @@ class AsyncGeminiProvider:
 
         Args:
             payload: Rendered context from ctx.render(format=Format.GEMINI)
+                    Expected keys: contents, system_instruction (optional), generation_config (optional)
 
         Yields:
             StreamChunk objects as the response is generated
         """
-        # Merge config from payload and instance config
-        config = {**self.config}
-        if "config" in payload:
-            config.update(payload["config"])
+        kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini streaming API asynchronously
-        response_stream = await self.client.models.generate_content_stream(
-            model=self.model,
-            contents=payload.get("contents", []),
-            config=config if config else None,  # type: ignore[arg-type]
-        )
+        response_stream = await self.client.models.generate_content_stream(**kwargs)
 
         # Stream chunks
         async for chunk in response_stream:
@@ -484,3 +481,26 @@ class AsyncGeminiProvider:
     async def __aexit__(self, *args: Any) -> None:
         """Async context manager exit - closes the client."""
         await self.aclose()
+
+    def _build_request_kwargs(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Build keyword arguments for SDK calls."""
+        kwargs: Dict[str, Any] = {
+            "model": self.model,
+            "contents": payload.get("contents", []),
+        }
+
+        if "system_instruction" in payload:
+            kwargs["system_instruction"] = payload["system_instruction"]
+
+        generation_config = {**self.config}
+        payload_config = payload.get("generation_config")
+        if payload_config:
+            generation_config.update(payload_config)
+        if generation_config:
+            kwargs["generation_config"] = generation_config
+
+        tools = payload.get("tools")
+        if tools:
+            kwargs["tools"] = tools
+
+        return kwargs

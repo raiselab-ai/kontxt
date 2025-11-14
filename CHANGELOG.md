@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0a5] - 2025-01-14
+
+### Changed
+- **Gemini rendering**: `render_gemini()` now emits tool declarations at the top level while keeping `generation_config` strictly for sampling parameters, matching the latest Google SDK expectations.
+- **Gemini providers**: `GeminiProvider` and `AsyncGeminiProvider` merge default + per-render generation configs via a shared `_build_request_kwargs()` helper, forward `tools` explicitly, and only import `google-genai` when they must create a client.
+- **Internal refactoring**: Simplified payload structure - `system_instruction` and `tools` are now automatically extracted from rendered context and properly passed to the Gemini API without manual config merging.
+
+### Added
+- **Tests**: Added provider-level unit tests that validate kwargs passed to the Google client (both sync and streaming) to prevent regressions in future SDK updates.
+- **Integration tests**: Added 10 new tests covering complete payload handling with system instructions, tools, generation config, and phase workflows.
+
+### Fixed
+- **System instruction handling**: Fixed critical bug where phase-specific system prompts were not being passed to the Gemini API, causing wrong prompts to be used.
+- **Tool declarations**: Fixed tools being rendered as text messages instead of proper function declarations.
+
 ## [0.1.0a4] - 2025-01-14
 
 ### Added
@@ -267,9 +282,9 @@ ctx.render()  # Automatically uses current phase!
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a5]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a5
 [0.1.0a4]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a4
 [0.1.0a3]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a3
 [0.1.0a2]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a1
-
 
