@@ -366,7 +366,7 @@ class AsyncGeminiProvider:
         kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini API asynchronously
-        response = await self.client.models.generate_content(**kwargs)
+        response = await self.client.models.generate_content(**kwargs)  # type: ignore[misc]
 
         # Extract text and tool calls from response
         return self._parse_response(response)
@@ -384,7 +384,7 @@ class AsyncGeminiProvider:
         kwargs = self._build_request_kwargs(payload)
 
         # Call Gemini streaming API asynchronously
-        response_stream = await self.client.models.generate_content_stream(**kwargs)
+        response_stream = await self.client.models.generate_content_stream(**kwargs)  # type: ignore[misc]
 
         # Stream chunks
         async for chunk in response_stream:
