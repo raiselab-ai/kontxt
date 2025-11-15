@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0a6] - 2025-01-15
+
+### Fixed
+- **CRITICAL: API parameter structure**: Fixed `system_instruction` being passed as a top-level parameter instead of inside `config` parameter as required by the Google Gemini API specification. This ensures compatibility with the official `google-genai` SDK.
+
+### Changed
+- **Provider implementation**: Updated `_build_request_kwargs()` to correctly place `system_instruction` inside the `GenerateContentConfig` object, matching the pattern shown in Google's official documentation.
+
 ## [0.1.0a5] - 2025-01-14
 
 ### Changed
@@ -282,6 +290,7 @@ ctx.render()  # Automatically uses current phase!
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a6]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a6
 [0.1.0a5]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a5
 [0.1.0a4]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a4
 [0.1.0a3]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a3

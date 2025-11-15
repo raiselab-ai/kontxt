@@ -254,9 +254,12 @@ def test_gemini_provider_passes_generation_config_and_tools():
     kwargs = client.models.generate_kwargs
     assert kwargs["model"] == "dummy-model"
     assert kwargs["contents"] == payload["contents"]
-    assert kwargs["system_instruction"] == payload["system_instruction"]
+    # system_instruction should be inside config, not separate
+    assert "system_instruction" not in kwargs
+    assert kwargs["config"]["system_instruction"] == payload["system_instruction"]
     # Default config merged with render-time config
-    assert kwargs["generation_config"] == {"temperature": 0.1, "topP": 0.9}
+    assert kwargs["config"]["temperature"] == 0.1
+    assert kwargs["config"]["topP"] == 0.9
     assert kwargs["tools"] == payload["tools"]
 
 

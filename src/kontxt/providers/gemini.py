@@ -238,22 +238,31 @@ class GeminiProvider:
         self.close()
 
     def _build_request_kwargs(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Build keyword arguments for SDK calls."""
+        """Build keyword arguments for SDK calls.
+
+        According to Google's Gemini API docs, system_instruction should be inside
+        the config parameter, not as a separate top-level parameter.
+        """
         kwargs: Dict[str, Any] = {
             "model": self.model,
             "contents": payload.get("contents", []),
         }
 
-        if "system_instruction" in payload:
-            kwargs["system_instruction"] = payload["system_instruction"]
-
+        # Build config by merging instance config with payload config
         generation_config = {**self.config}
         payload_config = payload.get("generation_config")
         if payload_config:
             generation_config.update(payload_config)
-        if generation_config:
-            kwargs["generation_config"] = generation_config
 
+        # Add system_instruction to config if present in payload
+        if "system_instruction" in payload:
+            generation_config["system_instruction"] = payload["system_instruction"]
+
+        # Only add config if there's something in it
+        if generation_config:
+            kwargs["config"] = generation_config  # type: ignore[assignment]
+
+        # Add tools at top level
         tools = payload.get("tools")
         if tools:
             kwargs["tools"] = tools
@@ -483,22 +492,31 @@ class AsyncGeminiProvider:
         await self.aclose()
 
     def _build_request_kwargs(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Build keyword arguments for SDK calls."""
+        """Build keyword arguments for SDK calls.
+
+        According to Google's Gemini API docs, system_instruction should be inside
+        the config parameter, not as a separate top-level parameter.
+        """
         kwargs: Dict[str, Any] = {
             "model": self.model,
             "contents": payload.get("contents", []),
         }
 
-        if "system_instruction" in payload:
-            kwargs["system_instruction"] = payload["system_instruction"]
-
+        # Build config by merging instance config with payload config
         generation_config = {**self.config}
         payload_config = payload.get("generation_config")
         if payload_config:
             generation_config.update(payload_config)
-        if generation_config:
-            kwargs["generation_config"] = generation_config
 
+        # Add system_instruction to config if present in payload
+        if "system_instruction" in payload:
+            generation_config["system_instruction"] = payload["system_instruction"]
+
+        # Only add config if there's something in it
+        if generation_config:
+            kwargs["config"] = generation_config  # type: ignore[assignment]
+
+        # Add tools at top level
         tools = payload.get("tools")
         if tools:
             kwargs["tools"] = tools

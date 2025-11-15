@@ -1,6 +1,6 @@
 [project]
 name = "kontxt"
-version = "0.1.0a5"
+version = "0.1.0a6"
 description = "Context orchestration primitives for LLM applications."
 readme = "README.md"
 authors = [
