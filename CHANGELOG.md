@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0a8] - 2025-12-04
+
+### Fixed
+- **Linting errors**: Removed unused imports and fixed f-strings without placeholders that caused CI pipeline failures
+
 ## [0.1.0a7] - 2025-12-04
 
 ### Changed
@@ -309,6 +314,7 @@ ctx.render()  # Automatically uses current phase!
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a8]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a8
 [0.1.0a7]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a7
 [0.1.0a6]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a6
 [0.1.0a5]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a5
