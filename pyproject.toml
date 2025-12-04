@@ -1,6 +1,6 @@
 [project]
 name = "kontxt"
-version = "0.1.0a6"
+version = "0.1.0a7"
 description = "Context orchestration primitives for LLM applications."
 readme = "README.md"
 authors = [
@@ -65,3 +65,8 @@ include = [
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "google-genai>=1.50.1",
+]

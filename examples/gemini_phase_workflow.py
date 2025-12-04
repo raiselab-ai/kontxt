@@ -2,7 +2,7 @@
 
 This example demonstrates the complete phase workflow designed for Google Gemini:
 - Type-safe Enum phases
-- Proper Gemini format rendering
+- Proper Gemini format rendering with google.genai.types
 - Phase transitions with validation
 - System instructions + phase-specific instructions
 - Generation config support
@@ -11,6 +11,8 @@ Real-world use case: Customer support escalation workflow
 """
 
 from enum import Enum
+
+from google.genai import types as genai_types
 
 from kontxt import Context, State, SystemPrompt, ChatMessages, Format
 
@@ -105,24 +107,29 @@ def main():
     print(f"Customer: {customer_msg}")
     print()
 
-    # Render for Gemini with generation config
+    # Render for Gemini with generation config (using snake_case as per google.genai)
     generation_config = {
         "temperature": 0.7,
-        "topP": 0.9,
-        "maxOutputTokens": 2048,
+        "top_p": 0.9,
+        "max_output_tokens": 2048,
     }
 
     payload = ctx.render(format=Format.GEMINI, generation_config=generation_config)
 
-    print("🔍 Gemini Payload Structure:")
-    print(f"  - system_instruction: {len(payload['system_instruction']['parts'][0]['text'])} chars")
-    print(f"  - contents: {len(payload['contents'])} messages")
-    print(f"  - generation_config: {payload['generation_config']}")
+    # Verify proper types are used
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+
+    print("🔍 Gemini Payload Structure (using proper google.genai.types):")
+    print(f"  - system_instruction: list[Part] with {len(payload['system_instruction'][0].text)} chars")
+    print(f"  - contents: {len(payload['contents'])} Content objects")
+    print(f"  - generation_config: GenerateContentConfig(temperature={payload['generation_config'].temperature})")
     print()
 
     # Show what Gemini sees
     print("📤 System Instruction sent to Gemini:")
-    print(payload["system_instruction"]["parts"][0]["text"][:200] + "...")
+    print(payload["system_instruction"][0].text[:200] + "...")
     print()
 
     # Simulate AI response
@@ -156,12 +163,12 @@ def main():
     payload = ctx.render(format=Format.GEMINI, generation_config=generation_config)
 
     print("🔍 New Gemini Payload (Investigation Phase):")
-    print(f"  - system_instruction: {len(payload['system_instruction']['parts'][0]['text'])} chars")
-    print(f"  - contents: {len(payload['contents'])} messages")
+    print(f"  - system_instruction: list[Part] with {len(payload['system_instruction'][0].text)} chars")
+    print(f"  - contents: {len(payload['contents'])} Content objects")
     print()
 
-    # Verify instructions changed
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Verify instructions changed (using proper Part object)
+    system_text = payload["system_instruction"][0].text
     assert "INVESTIGATION PHASE" in system_text
     assert "TRIAGE PHASE" not in system_text
 

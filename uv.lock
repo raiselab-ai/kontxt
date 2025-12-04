@@ -564,7 +564,7 @@ wheels = [
 
 [[package]]
 name = "kontxt"
-version = "0.1.0a6"
+version = "0.1.0a7"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -587,6 +587,11 @@ gemini = [
     { name = "google-genai" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "google-genai" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=1.50.0" },
@@ -601,6 +606,9 @@ requires-dist = [
     { name = "twine", marker = "extra == 'dev'", specifier = ">=5.0" },
 ]
 provides-extras = ["dev", "docs", "gemini"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "google-genai", specifier = ">=1.50.1" }]
 
 [[package]]
 name = "markdown"

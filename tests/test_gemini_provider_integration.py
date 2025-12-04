@@ -1,5 +1,7 @@
 """Integration tests for GeminiProvider with full payload handling."""
 
+from google.genai import types as genai_types
+
 from kontxt import Context, State
 from kontxt.providers import GeminiProvider
 from kontxt.types import Format
@@ -19,15 +21,18 @@ def test_gemini_payload_with_system_instruction():
     assert "system_instruction" in payload
     assert "system_instruction" not in payload["contents"]
 
-    # Verify system_instruction content
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Verify system_instruction is a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "You are a helpful assistant." in system_text
     assert "Be concise and direct." in system_text
 
-    # Verify contents only has messages
+    # Verify contents only has messages (as Content objects)
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][0]["parts"][0]["text"] == "Hello!"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][0].parts[0].text == "Hello!"
 
 
 def test_gemini_payload_with_tools():
@@ -63,9 +68,10 @@ def test_gemini_payload_with_tools():
     # Verify tools are separate from contents
     assert payload["tools"] == [advance_phase_tool]
 
-    # Verify tools don't appear as text in contents
+    # Verify tools don't appear as text in contents (now using Content objects)
     for content in payload["contents"]:
-        text = content["parts"][0]["text"]
+        assert isinstance(content, genai_types.Content)
+        text = content.parts[0].text
         assert "[tools]" not in text
         assert "advance_phase" not in text
 
@@ -99,7 +105,7 @@ def test_gemini_payload_with_generation_config_and_tools():
     """Test that generation_config and tools are emitted separately."""
 
     tool = {"name": "test_tool"}
-    gen_config = {"temperature": 0.7, "topP": 0.9}
+    gen_config = {"temperature": 0.7, "top_p": 0.9}
 
     ctx = Context()
     ctx.add("system", "Test system")
@@ -108,10 +114,11 @@ def test_gemini_payload_with_generation_config_and_tools():
 
     payload = ctx.render(format=Format.GEMINI, generation_config=gen_config)
 
-    # Verify both generation_config and tools are present
+    # Verify both generation_config (as GenerateContentConfig) and tools are present
     assert "generation_config" in payload
-    assert payload["generation_config"]["temperature"] == 0.7
-    assert payload["generation_config"]["topP"] == 0.9
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    assert payload["generation_config"].temperature == 0.7
+    assert payload["generation_config"].top_p == 0.9
     assert payload["tools"] == [tool]
 
 
@@ -144,17 +151,20 @@ def test_gemini_payload_complete_workflow():
     assert "system_instruction" in payload
     assert "tools" in payload
 
-    # Verify system_instruction combines system + instructions
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Verify system_instruction is a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "You are a weather assistant." in system_text
     assert "Always use the get_weather tool." in system_text
 
     # Verify tools at the top level
     assert payload["tools"] == [tool]
 
-    # Verify contents only has the message
+    # Verify contents only has the message (as Content object)
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
 
 
 def test_gemini_payload_without_tools():
@@ -179,9 +189,10 @@ def test_gemini_payload_with_only_generation_config():
     gen_config = {"temperature": 0.5}
     payload = ctx.render(format=Format.GEMINI, generation_config=gen_config)
 
-    # Should have generation_config but no tools
+    # Should have generation_config (as GenerateContentConfig) but no tools
     assert "generation_config" in payload
-    assert payload["generation_config"]["temperature"] == 0.5
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    assert payload["generation_config"].temperature == 0.5
     assert "tools" not in payload
 
 
@@ -194,14 +205,16 @@ def test_gemini_payload_messages_only():
 
     payload = ctx.render(format=Format.GEMINI)
 
-    # Verify structure
+    # Verify structure - contents should be list of Content objects
     assert "contents" in payload
     assert len(payload["contents"]) == 3
 
-    # Verify role mapping
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][1]["role"] == "model"  # assistant -> model
-    assert payload["contents"][2]["role"] == "user"
+    # Verify role mapping (using Content object attributes)
+    for content in payload["contents"]:
+        assert isinstance(content, genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][1].role == "model"  # assistant -> model
+    assert payload["contents"][2].role == "user"
 
     # No system_instruction or generation_config
     assert "system_instruction" not in payload

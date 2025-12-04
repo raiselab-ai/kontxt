@@ -12,6 +12,7 @@ from __future__ import annotations
 from enum import Enum
 
 import pytest
+from google.genai import types as genai_types
 
 from kontxt import Context, State, SystemPrompt, ChatMessages, Format
 from kontxt.exceptions import InvalidPhaseError, InvalidPhaseTransitionError
@@ -79,15 +80,18 @@ def test_full_phase_workflow_gemini_format():
     assert "contents" in payload
     assert "system_instruction" in payload
 
-    # Check system instruction combines system + instructions
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Check system instruction combines system + instructions (now a list of Part objects)
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "helpful AI assistant" in system_text
     assert "gather requirements" in system_text
 
-    # Check messages
+    # Check messages (now Content objects)
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
-    assert "need help" in payload["contents"][0]["parts"][0]["text"]
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert "need help" in payload["contents"][0].parts[0].text
 
     # Add response
     ctx.add_response("I'll help you. What's the task?")
@@ -99,8 +103,9 @@ def test_full_phase_workflow_gemini_format():
     ctx.add_user_message("I need to analyze data")
     payload = ctx.render(format=Format.GEMINI)
 
-    # Verify instructions changed
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Verify instructions changed (system_instruction is a list of Part objects)
+    assert isinstance(payload["system_instruction"], list)
+    system_text = payload["system_instruction"][0].text
     assert "analyze and process" in system_text
     assert "gather requirements" not in system_text
 
@@ -112,7 +117,8 @@ def test_full_phase_workflow_gemini_format():
     ctx.advance_phase(WorkflowPhases.REVIEW)
 
     payload = ctx.render(format=Format.GEMINI)
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    assert isinstance(payload["system_instruction"], list)
+    system_text = payload["system_instruction"][0].text
     assert "validate results" in system_text
 
     # ======== Complete workflow ========
@@ -191,19 +197,20 @@ def test_gemini_format_with_generation_config():
         includes=[SystemPrompt],
     )
 
-    # Render with generation config
+    # Render with generation config (using snake_case as per google.genai)
     generation_config = {
         "temperature": 0.7,
-        "topP": 0.9,
-        "maxOutputTokens": 1024,
+        "top_p": 0.9,
+        "max_output_tokens": 1024,
     }
 
     payload = ctx.render(format=Format.GEMINI, generation_config=generation_config)
 
     assert "generation_config" in payload
-    assert payload["generation_config"]["temperature"] == 0.7
-    assert payload["generation_config"]["topP"] == 0.9
-    assert payload["generation_config"]["maxOutputTokens"] == 1024
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    assert payload["generation_config"].temperature == 0.7
+    assert payload["generation_config"].top_p == 0.9
+    assert payload["generation_config"].max_output_tokens == 1024
 
 
 def test_gemini_role_mapping():
@@ -220,10 +227,12 @@ def test_gemini_role_mapping():
 
     payload = ctx.render(format=Format.GEMINI)
 
-    # Verify role mapping
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][1]["role"] == "model"  # assistant -> model
-    assert payload["contents"][2]["role"] == "user"
+    # Verify role mapping (using Content object attributes)
+    for content in payload["contents"]:
+        assert isinstance(content, genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][1].role == "model"  # assistant -> model
+    assert payload["contents"][2].role == "user"
 
 
 def test_gemini_system_in_messages():
@@ -239,12 +248,15 @@ def test_gemini_system_in_messages():
 
     payload = ctx.render(format=Format.GEMINI)
 
-    # System message should be moved to system_instruction
-    assert "Important context" in payload["system_instruction"]["parts"][0]["text"]
+    # System message should be moved to system_instruction (as a list of Part objects)
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    assert "Important context" in payload["system_instruction"][0].text
 
-    # Only user message should be in contents
+    # Only user message should be in contents (as Content object)
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
 
 
 # ============================================================================
@@ -337,8 +349,9 @@ def test_max_history_per_phase():
     # Should only have last 4 messages
     assert len(payload["contents"]) == 4
 
-    # Verify it's the last 4
-    last_msg = payload["contents"][-1]["parts"][0]["text"]
+    # Verify it's the last 4 (using Content object attributes)
+    assert isinstance(payload["contents"][-1], genai_types.Content)
+    last_msg = payload["contents"][-1].parts[0].text
     assert "Response 9" in last_msg
 
 

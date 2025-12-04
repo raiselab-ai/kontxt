@@ -1,5 +1,7 @@
 """Validate Gemini rendering format is correct."""
 
+from google.genai import types as genai_types
+
 from kontxt import Context, State, SystemPrompt, ChatMessages, Format
 
 
@@ -27,16 +29,19 @@ def test_gemini_merges_system_and_instructions():
     assert "system_instruction" in payload
     assert "contents" in payload
 
-    # Check system_instruction merges both
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Check system_instruction is a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "helpful assistant" in system_text
     assert "Phase-specific instructions" in system_text
     assert "\n\n" in system_text  # Should be separated
 
     # Check contents only has messages (not system/instructions)
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][0]["parts"][0]["text"] == "Hello"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][0].parts[0].text == "Hello"
 
 
 def test_gemini_contents_only_messages():
@@ -58,15 +63,19 @@ def test_gemini_contents_only_messages():
     # Should have exactly 3 messages in contents
     assert len(payload["contents"]) == 3
 
+    # Verify all are Content objects
+    for content in payload["contents"]:
+        assert isinstance(content, genai_types.Content)
+
     # Verify roles
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][1]["role"] == "model"  # assistant -> model
-    assert payload["contents"][2]["role"] == "user"
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][1].role == "model"  # assistant -> model
+    assert payload["contents"][2].role == "user"
 
     # Verify content
-    assert "First message" in payload["contents"][0]["parts"][0]["text"]
-    assert "First response" in payload["contents"][1]["parts"][0]["text"]
-    assert "Second message" in payload["contents"][2]["parts"][0]["text"]
+    assert "First message" in payload["contents"][0].parts[0].text
+    assert "First response" in payload["contents"][1].parts[0].text
+    assert "Second message" in payload["contents"][2].parts[0].text
 
 
 def test_gemini_no_system_in_contents():
@@ -86,11 +95,14 @@ def test_gemini_no_system_in_contents():
 
     # Contents should only have user message
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][0]["parts"][0]["text"] == "User message"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][0].parts[0].text == "User message"
 
-    # System/instructions should be in system_instruction
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # System/instructions should be in system_instruction as a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "System prompt" in system_text
     assert "Instructions" in system_text
 
@@ -108,12 +120,15 @@ def test_gemini_system_messages_moved_to_instruction():
 
     payload = ctx.render(format=Format.GEMINI)
 
-    # System message should be in system_instruction
-    assert "Important context" in payload["system_instruction"]["parts"][0]["text"]
+    # System message should be in system_instruction as a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    assert "Important context" in payload["system_instruction"][0].text
 
     # Contents should only have user message
     assert len(payload["contents"]) == 1
-    assert payload["contents"][0]["role"] == "user"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
 
 
 def test_gemini_other_sections_as_user_messages():
@@ -131,18 +146,22 @@ def test_gemini_other_sections_as_user_messages():
     # Should have 2 messages in contents
     assert len(payload["contents"]) == 2
 
+    # Verify both are Content objects
+    for content in payload["contents"]:
+        assert isinstance(content, genai_types.Content)
+
     # First should be custom_data as user message with label
-    assert payload["contents"][0]["role"] == "user"
-    assert "[custom_data]" in payload["contents"][0]["parts"][0]["text"]
-    assert "Some custom data" in payload["contents"][0]["parts"][0]["text"]
+    assert payload["contents"][0].role == "user"
+    assert "[custom_data]" in payload["contents"][0].parts[0].text
+    assert "Some custom data" in payload["contents"][0].parts[0].text
 
     # Second should be user message
-    assert payload["contents"][1]["role"] == "user"
-    assert payload["contents"][1]["parts"][0]["text"] == "Hello"
+    assert payload["contents"][1].role == "user"
+    assert payload["contents"][1].parts[0].text == "Hello"
 
 
 def test_complete_gemini_payload_structure():
-    """Validate complete Gemini payload matches API spec."""
+    """Validate complete Gemini payload matches API spec with proper types."""
     state = State(current_phase="test")
     ctx = Context(state=state)
 
@@ -161,23 +180,25 @@ def test_complete_gemini_payload_structure():
     # Validate top-level structure
     assert set(payload.keys()) == {"contents", "system_instruction", "generation_config"}
 
-    # Validate system_instruction structure
-    assert "parts" in payload["system_instruction"]
-    assert isinstance(payload["system_instruction"]["parts"], list)
-    assert len(payload["system_instruction"]["parts"]) == 1
-    assert "text" in payload["system_instruction"]["parts"][0]
+    # Validate system_instruction is a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert len(payload["system_instruction"]) == 1
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    assert payload["system_instruction"][0].text is not None
 
-    # Validate contents structure
+    # Validate contents structure - should be list of Content objects
     assert isinstance(payload["contents"], list)
     for content in payload["contents"]:
-        assert "role" in content
-        assert content["role"] in ["user", "model"]
-        assert "parts" in content
-        assert isinstance(content["parts"], list)
-        assert "text" in content["parts"][0]
+        assert isinstance(content, genai_types.Content)
+        assert content.role in ["user", "model"]
+        assert isinstance(content.parts, list)
+        assert len(content.parts) > 0
+        # Parts should have text attribute
+        assert content.parts[0].text is not None
 
-    # Validate generation_config
-    assert payload["generation_config"] == generation_config
+    # Validate generation_config is a GenerateContentConfig object
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    assert payload["generation_config"].temperature == 0.7
 
 
 def test_gemini_empty_system_instruction():
@@ -193,6 +214,7 @@ def test_gemini_empty_system_instruction():
     # Should not have system_instruction
     assert "system_instruction" not in payload or payload["system_instruction"] is None
 
-    # Should only have contents
+    # Should only have contents with proper type
     assert "contents" in payload
     assert len(payload["contents"]) == 1
+    assert isinstance(payload["contents"][0], genai_types.Content)

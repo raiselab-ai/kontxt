@@ -202,7 +202,9 @@ def test_context_render_without_phase_ignores_memory() -> None:
 # Gemini Integration Tests
 # ------------------------------------------------------------------
 def test_context_render_gemini_format() -> None:
-    """Test rendering context in Gemini API format."""
+    """Test rendering context in Gemini API format with proper types."""
+    from google.genai import types as genai_types
+
     ctx = Context()
     ctx.add("system", "You are a helpful assistant")
     ctx.add("messages", {"role": "user", "content": "Hello"})
@@ -212,31 +214,41 @@ def test_context_render_gemini_format() -> None:
 
     assert "system_instruction" in payload
     assert "contents" in payload
-    assert payload["system_instruction"]["parts"][0]["text"] == "You are a helpful assistant"
+    # system_instruction is now a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    assert payload["system_instruction"][0].text == "You are a helpful assistant"
+    # contents is now a list of Content objects
     assert len(payload["contents"]) == 2
-    assert payload["contents"][0]["role"] == "user"
-    assert payload["contents"][0]["parts"][0]["text"] == "Hello"
-    assert payload["contents"][1]["role"] == "model"  # assistant -> model
-    assert payload["contents"][1]["parts"][0]["text"] == "Hi there"
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
+    assert payload["contents"][0].parts[0].text == "Hello"
+    assert payload["contents"][1].role == "model"  # assistant -> model
+    assert payload["contents"][1].parts[0].text == "Hi there"
 
 
 def test_context_render_gemini_with_generation_config() -> None:
     """Test rendering with generation_config parameter."""
+    from google.genai import types as genai_types
+
     ctx = Context()
     ctx.add("messages", {"role": "user", "content": "Test message"})
 
     payload = ctx.render(
         format=Format.GEMINI,
-        generation_config={"temperature": 0.7, "topP": 0.9}
+        generation_config={"temperature": 0.7, "top_p": 0.9}
     )
 
     assert "generation_config" in payload
-    assert payload["generation_config"]["temperature"] == 0.7
-    assert payload["generation_config"]["topP"] == 0.9
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    assert payload["generation_config"].temperature == 0.7
+    assert payload["generation_config"].top_p == 0.9
 
 
 def test_context_render_gemini_with_instructions() -> None:
     """Test that instructions are included in system_instruction."""
+    from google.genai import types as genai_types
+
     ctx = Context()
     ctx.phase("test").configure(
         system="System message",
@@ -247,7 +259,10 @@ def test_context_render_gemini_with_instructions() -> None:
 
     payload = ctx.render(phase="test", format=Format.GEMINI)
 
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # system_instruction is now a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "System message" in system_text
     assert "Follow these instructions" in system_text
 
@@ -282,6 +297,8 @@ def test_context_add_response_with_custom_role() -> None:
 
 def test_gemini_integration_full_workflow() -> None:
     """Test complete workflow simulating Gemini integration."""
+    from google.genai import types as genai_types
+
     memory = Memory()
     ctx = Context(memory=memory)
 
@@ -306,17 +323,20 @@ def test_gemini_integration_full_workflow() -> None:
         generation_config={"temperature": 0.5}
     )
 
-    # Verify payload structure
+    # Verify payload structure with proper types
     assert "contents" in payload
     assert "system_instruction" in payload
     assert "generation_config" in payload
 
-    # Verify patient data included
-    system_text = payload["system_instruction"]["parts"][0]["text"]
+    # Verify patient data included - system_instruction is now a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
     assert "medical assistant" in system_text
 
-    # Verify message in contents
-    assert payload["contents"][0]["role"] == "user"
+    # Verify message in contents - contents is now a list of Content objects
+    assert isinstance(payload["contents"][0], genai_types.Content)
+    assert payload["contents"][0].role == "user"
 
     # Simulate API response
     ctx.add_response("Your current blood pressure reading shows 145/92 mmHg")

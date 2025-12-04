@@ -4,10 +4,12 @@ This demo proves that:
 1. system + instructions are MERGED into system_instruction
 2. contents only has message history
 3. No system/instructions leak into contents
+4. All objects are proper google.genai.types objects
 """
 
-import json
 from enum import Enum
+
+from google.genai import types as genai_types
 
 from kontxt import Context, State, SystemPrompt, ChatMessages, Format
 
@@ -44,7 +46,7 @@ def main():
     payload = ctx.render(format=Format.GEMINI, generation_config={"temperature": 0.7})
 
     print("📤 PAYLOAD SENT TO GEMINI:")
-    print(json.dumps(payload, indent=2))
+    print("(Payload contains proper google.genai.types objects)")
     print()
 
     # Validate structure
@@ -53,9 +55,12 @@ def main():
     print("=" * 80)
     print()
 
-    # Check 1: system_instruction merges both
-    system_text = payload["system_instruction"]["parts"][0]["text"]
-    print("✅ CHECK 1: system + instructions merged into system_instruction")
+    # Check 1: system_instruction is a list of Part objects
+    assert isinstance(payload["system_instruction"], list)
+    assert isinstance(payload["system_instruction"][0], genai_types.Part)
+    system_text = payload["system_instruction"][0].text
+    print("✅ CHECK 1: system + instructions merged into system_instruction (as Part objects)")
+    print(f"   Type: list[genai_types.Part]")
     print(f"   Length: {len(system_text)} chars")
     print(f"   Contains 'customer support': {'customer support' in system_text}")
     print(f"   Contains 'Current phase': {'Current phase' in system_text}")
@@ -63,17 +68,18 @@ def main():
     print(f"   Separated by double newline: {double_newline_present}")
     print()
 
-    # Check 2: contents only has messages
-    print("✅ CHECK 2: contents only has message history")
+    # Check 2: contents is a list of Content objects
+    print("✅ CHECK 2: contents only has message history (as Content objects)")
     print(f"   Number of messages: {len(payload['contents'])}")
     for i, msg in enumerate(payload["contents"]):
-        print(f"   Message {i+1}: role={msg['role']}, text={msg['parts'][0]['text'][:50]}...")
+        assert isinstance(msg, genai_types.Content)
+        print(f"   Message {i+1}: role={msg.role}, text={msg.parts[0].text[:50]}...")
     print()
 
     # Check 3: No system/instructions in contents
     print("✅ CHECK 3: No system/instructions leaked into contents")
     has_system_in_contents = any(
-        "customer support" in msg["parts"][0]["text"] or "Current phase" in msg["parts"][0]["text"]
+        "customer support" in msg.parts[0].text or "Current phase" in msg.parts[0].text
         for msg in payload["contents"]
     )
     print(f"   System text found in contents: {has_system_in_contents}")
@@ -81,15 +87,16 @@ def main():
 
     # Check 4: Role mapping
     print("✅ CHECK 4: Roles correctly mapped")
-    roles = [msg["role"] for msg in payload["contents"]]
+    roles = [msg.role for msg in payload["contents"]]
     print(f"   Roles: {roles}")
     print(f"   'assistant' mapped to 'model': {'model' in roles and 'assistant' not in roles}")
     print()
 
-    # Check 5: Generation config passed through
-    print("✅ CHECK 5: generation_config passed through")
-    print(f"   Has generation_config: {'generation_config' in payload}")
-    print(f"   Temperature: {payload.get('generation_config', {}).get('temperature')}")
+    # Check 5: Generation config is a GenerateContentConfig object
+    print("✅ CHECK 5: generation_config is proper GenerateContentConfig object")
+    assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
+    print(f"   Type: genai_types.GenerateContentConfig")
+    print(f"   Temperature: {payload['generation_config'].temperature}")
     print()
 
     print("=" * 80)
@@ -99,26 +106,26 @@ def main():
 
     print("📋 system_instruction (what Gemini sees as system prompt):")
     print("-" * 80)
-    print(payload["system_instruction"]["parts"][0]["text"])
+    print(payload["system_instruction"][0].text)
     print()
 
     print("💬 contents (conversation history):")
     print("-" * 80)
     for i, msg in enumerate(payload["contents"]):
-        print(f"{i+1}. [{msg['role'].upper()}]: {msg['parts'][0]['text']}")
+        print(f"{i+1}. [{msg.role.upper()}]: {msg.parts[0].text}")
     print()
 
     print("=" * 80)
     print("SUMMARY")
     print("=" * 80)
     print()
-    print("✅ system + instructions → MERGED into system_instruction")
-    print("✅ contents → ONLY message history")
+    print("✅ system + instructions → MERGED into system_instruction (list[Part])")
+    print("✅ contents → ONLY message history (list[Content])")
+    print("✅ generation_config → GenerateContentConfig object")
     print("✅ No leakage → system/instructions NOT in contents")
     print("✅ Roles mapped → assistant becomes model")
-    print("✅ Config passed → generation_config included")
     print()
-    print("🎉 Gemini rendering is CORRECT and production-ready!")
+    print("🎉 Gemini rendering uses PROPER google.genai.types and is production-ready!")
     print()
 
 

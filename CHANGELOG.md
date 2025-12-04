@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0a7] - 2025-12-04
+
+### Changed
+- **BREAKING: Gemini rendering now returns proper `google.genai.types` objects** instead of plain dictionaries:
+  - `contents`: Now returns `list[types.Content]` instead of `list[dict]`
+  - `system_instruction`: Now returns `list[types.Part]` instead of `dict`
+  - `generation_config`: Now returns `types.GenerateContentConfig` instead of `dict`
+  - This ensures full compatibility with the Google genai Python library and prevents type mismatches
+
+### Improved
+- **Performance optimization**: Refactored `render_gemini()` for O(n) complexity with reduced constant factors:
+  - Local method references (`contents_append`, `system_parts_extend`) for faster method lookup in hot loops
+  - O(1) role mapping via dictionary lookup instead of if/elif chain
+  - Faster key existence check (`"role" in item and "content" in item` vs set creation)
+  - Single-pass section processing preserving original order
+
+### Fixed
+- **Type safety**: Payload returned by `render_gemini()` now works directly with `client.models.generate_content(**payload)` without any type conversion
+
 ## [0.1.0a6] - 2025-01-15
 
 ### Fixed
@@ -290,6 +309,7 @@ ctx.render()  # Automatically uses current phase!
 - Production-ready packaging with Hatch build backend
 - 100% backward compatible with string-based APIs
 
+[0.1.0a7]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a7
 [0.1.0a6]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a6
 [0.1.0a5]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a5
 [0.1.0a4]: https://github.com/raise-lab/kontxt/releases/tag/v0.1.0a4
