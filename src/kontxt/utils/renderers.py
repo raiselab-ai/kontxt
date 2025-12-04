@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from ..types import SectionData
 from .serialization import ensure_serializable
-
-if TYPE_CHECKING:
-    from google.genai import types as genai_types
 
 
 def _stringify_items(items: Sequence[Any]) -> str:

@@ -60,7 +60,7 @@ def main():
     assert isinstance(payload["system_instruction"][0], genai_types.Part)
     system_text = payload["system_instruction"][0].text
     print("✅ CHECK 1: system + instructions merged into system_instruction (as Part objects)")
-    print(f"   Type: list[genai_types.Part]")
+    print("   Type: list[genai_types.Part]")
     print(f"   Length: {len(system_text)} chars")
     print(f"   Contains 'customer support': {'customer support' in system_text}")
     print(f"   Contains 'Current phase': {'Current phase' in system_text}")
@@ -95,7 +95,7 @@ def main():
     # Check 5: Generation config is a GenerateContentConfig object
     print("✅ CHECK 5: generation_config is proper GenerateContentConfig object")
     assert isinstance(payload["generation_config"], genai_types.GenerateContentConfig)
-    print(f"   Type: genai_types.GenerateContentConfig")
+    print("   Type: genai_types.GenerateContentConfig")
     print(f"   Temperature: {payload['generation_config'].temperature}")
     print()
 
